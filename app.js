@@ -50,7 +50,7 @@ const areaBoundaryLayer = L.geoJSON(null, {
 }).addTo(map);
 const geoPackageLayers = new Map([
   ["alkis_flurstuecke", { label: "ALKIS-Flurstücke", group: L.featureGroup().addTo(map), visible: true }],
-  ["klima_hitzeinseln", { label: "Klima-Hitzeinseln", group: L.featureGroup(), visible: false }],
+  ["naturdenkmal_point_mainz", { label: "Naturdenkmale (Info-Prototyp)", group: L.featureGroup().addTo(map), visible: true }],
   ["osm_graues_band_parkplaetze", { label: "Parkplätze / versiegelte Flächen", group: L.featureGroup(), visible: false }],
   ["osm_gruenflaechen_groesser_2ha", { label: "Grünflächen über 2 ha", group: L.featureGroup(), visible: false }],
 ]);
@@ -85,6 +85,104 @@ L.DomEvent.disableScrollPropagation(mapToolbox);
 document.getElementById("zoom-in").addEventListener("click", () => map.zoomIn());
 document.getElementById("zoom-out").addEventListener("click", () => map.zoomOut());
 L.control.scale({ imperial: false, position: "bottomright" }).addTo(map);
+loadLicenseBanner();
+
+function licenseLayerLabel(value, key) {
+  const knownLabels = {
+    cold_hot_spots_mainz: "Kalt- und Hitzeinseln Mainz",
+    kaltluftstromkarte_mainz: "Kaltluftstromkarte Mainz",
+    klimatopkarte_mainz: "Klimatopkarte Mainz",
+  };
+  if (knownLabels[key]) return knownLabels[key];
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return key.replaceAll("_", " ");
+}
+
+function licenseHref(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function createLicenseSegment(entries, hidden = false) {
+  const segment = document.createElement("div");
+  segment.className = "license-segment";
+  if (hidden) {
+    segment.setAttribute("aria-hidden", "true");
+    segment.inert = true;
+  }
+
+  entries.forEach(({ key, item }) => {
+    const entry = document.createElement("span");
+    entry.className = "license-entry";
+
+    const layer = document.createElement("strong");
+    layer.className = "license-layer";
+    layer.textContent = licenseLayerLabel(item.layer, key);
+    entry.append(layer);
+
+    const licenseText = document.createElement("span");
+    licenseText.textContent = `Lizenz: ${item.license}`;
+    entry.append(licenseText);
+
+    const licenseUrl = item.license === "CC-BY-4.0"
+      ? "https://creativecommons.org/licenses/by/4.0/"
+      : null;
+    if (licenseUrl) {
+      const licenseLink = document.createElement("a");
+      licenseLink.href = licenseUrl;
+      licenseLink.target = "_blank";
+      licenseLink.rel = "noopener noreferrer";
+      licenseLink.textContent = "Lizenzbedingungen";
+      entry.append(licenseLink);
+    }
+
+    const sourceUrl = licenseHref(item.source);
+    if (sourceUrl) {
+      const sourceLink = document.createElement("a");
+      sourceLink.href = sourceUrl;
+      sourceLink.target = "_blank";
+      sourceLink.rel = "noopener noreferrer";
+      sourceLink.textContent = "Quelle";
+      entry.append(sourceLink);
+    }
+    segment.append(entry);
+  });
+  return segment;
+}
+
+async function loadLicenseBanner() {
+  const status = document.getElementById("license-status");
+  const track = document.getElementById("license-track");
+  try {
+    const response = await fetch("scoring/lizenz.json");
+    if (!response.ok) throw new Error(`Lizenzdatei antwortet mit HTTP ${response.status}.`);
+    const data = await response.json();
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Die Lizenzdatei enthält kein gültiges Objekt.");
+    }
+
+    const entries = Object.entries(data).filter(([, item]) => (
+      item
+      && typeof item === "object"
+      && typeof item.license === "string"
+      && item.license.trim()
+    )).map(([key, item]) => ({ key, item }));
+    if (!entries.length) throw new Error("Die Lizenzdatei enthält keine gültigen Lizenzangaben.");
+
+    track.append(createLicenseSegment(entries));
+    track.append(createLicenseSegment(entries, true));
+    track.hidden = false;
+    status.hidden = true;
+  } catch (error) {
+    console.error("Lizenzbanner konnte nicht geladen werden:", error);
+    status.textContent = `Lizenzhinweise nicht verfügbar: ${error.message}`;
+  }
+}
 
 function loadDop20Layer() {
   if (aerialLoadPromise) return aerialLoadPromise;
@@ -620,7 +718,7 @@ document.getElementById("close-search-menu").addEventListener("click", () => {
 
 function showFeatureInformation(content, event) {
   if (!informationMode) return;
-  L.popup()
+  L.popup({ maxWidth: 390, minWidth: 280 })
     .setLatLng(event.latlng)
     .setContent(content)
     .openOn(map);
@@ -776,20 +874,22 @@ function stopGeoPackageRequest(name) {
 }
 
 function geoPackageFeaturePopup(feature) {
+  const properties = propertiesFor(feature);
+  if (properties.kennung || properties.bezeichnung) return makeMeasureInfoPopup(feature, true);
+
   const labels = {
     flstkennz: "Flurstückskennzeichen",
     flaeche_qm: "Fläche",
     t_eigentuemer: "Eigentum",
     nutzung: "Nutzung",
-    temp_klasse: "Temperaturklasse",
     leisure: "Typ",
     area_sqm: "Fläche",
   };
   const content = L.DomUtil.create("div", "feature-popup");
-  Object.entries(feature.properties || {}).forEach(([name, value]) => {
-    const row = L.DomUtil.create("p", "", content);
-    const label = labels[name] || name;
-    row.textContent = `${label}: ${name === "flaeche_qm" || name === "area_sqm"
+  Object.entries(properties).forEach(([name, value]) => {
+    if (value === null || value === "") return;
+    const row = L.DomUtil.create("p", "feature-popup-meta-row", content);
+    row.textContent = `${labels[name] || name}: ${name === "flaeche_qm" || name === "area_sqm"
       ? `${Number(value).toLocaleString("de-DE")} m²`
       : value}`;
   });
@@ -804,17 +904,19 @@ function renderGeoPackageLayer(name, geojson, source = "Kartenausschnitt") {
     osm_graues_band_parkplaetze: { color: "#545c61", fillColor: "#788087", fillOpacity: 0.36, weight: 1.1 },
     osm_gruenflaechen_groesser_2ha: { color: "#36754e", fillColor: "#69a779", fillOpacity: 0.4, weight: 1.4 },
   };
-  const heatStyles = {
-    Mittel: { color: "#9b7413", fillColor: "#f2c94c", fillOpacity: 0.48, weight: 1.5 },
-    Hoch: { color: "#a34412", fillColor: "#f07832", fillOpacity: 0.58, weight: 1.6 },
-    Extrem: { color: "#741d2b", fillColor: "#c93645", fillOpacity: 0.7, weight: 1.8 },
-  };
   layer.group.clearLayers();
   L.geoJSON(geojson, {
     pane: dataLayerPaneNames.get("gpkg:" + name),
-    style: (feature) => name === "klima_hitzeinseln"
-      ? heatStyles[feature.properties?.temp_klasse] || heatStyles.Mittel
-      : styles[name],
+    style: styles[name],
+    pointToLayer: (_feature, latLng) => L.circleMarker(latLng, {
+      pane: dataLayerPaneNames.get("gpkg:" + name),
+      radius: 8,
+      color: "#ffffff",
+      weight: 2,
+      fillColor: "#7a3e9d",
+      fillOpacity: 0.95,
+      className: name === "naturdenkmal_point_mainz" ? "nature-monument-marker" : "",
+    }),
     onEachFeature: (feature, featureLayer) => {
       featureLayer.on("click", (event) => showFeatureInformation(geoPackageFeaturePopup(feature), event));
     },
@@ -963,6 +1065,9 @@ fetch("api/geopackage/layers")
   .catch((error) => {
     console.error("GeoPackage-Layerliste konnte nicht geladen werden:", error);
     geoPackageStatus.textContent = error.message || "GeoPackage-Layerliste konnte nicht geladen werden.";
+    geoPackageLayers.forEach((layer, name) => {
+      if (layer.visible) fetchGeoPackageLayer(name);
+    });
   });
 
 finishButton.addEventListener("click", completeSketch);
@@ -982,18 +1087,138 @@ function propertiesFor(feature) {
 }
 
 function makeFeaturePopup(feature) {
-  const properties = propertiesFor(feature);
-  const content = L.DomUtil.create("div", "feature-popup");
-  const title = L.DomUtil.create("strong", "", content);
-  title.textContent = properties.name || properties.titel || "Entsiegelungsfläche";
+  return makeMeasureInfoPopup(feature, false);
+}
 
-  if (properties.score !== undefined && properties.score !== null) {
-    const score = L.DomUtil.create("p", "", content);
-    score.textContent = `Score: ${properties.score}`;
+function firstProperty(properties, names) {
+  for (const name of names) {
+    if (properties[name] !== undefined && properties[name] !== null && properties[name] !== "") {
+      return properties[name];
+    }
   }
-  if (properties.priority) {
-    const priority = L.DomUtil.create("p", "", content);
-    priority.textContent = `Priorität: ${properties.priority}`;
+  return null;
+}
+
+function addInfoMetric(parent, label, value, note, variant = "") {
+  const card = L.DomUtil.create("section", `feature-metric ${variant}`.trim(), parent);
+  const heading = L.DomUtil.create("h3", "", card);
+  heading.textContent = label;
+  const output = L.DomUtil.create("strong", "feature-metric-value", card);
+  output.textContent = value;
+  const description = L.DomUtil.create("p", "feature-metric-note", card);
+  description.textContent = note;
+}
+
+function formatInfoArea(value) {
+  const area = Number(value);
+  if (!Number.isFinite(area) || area < 0) return null;
+  return `${area.toLocaleString("de-DE", { maximumFractionDigits: 1 })} m²`;
+}
+
+function formatMeasures(value) {
+  if (Array.isArray(value)) {
+    const measures = value.map(String).filter(Boolean);
+    return measures.length ? measures.join(", ") : null;
+  }
+  if (typeof value === "string") return value.trim() || null;
+  return null;
+}
+
+function addExternalInfoLink(parent, href, label) {
+  if (typeof href !== "string" || !/^https?:\/\//i.test(href)) return;
+  const link = L.DomUtil.create("a", "feature-popup-link", parent);
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = label;
+}
+
+function makeMeasureInfoPopup(feature, isNatureMonument) {
+  const properties = propertiesFor(feature);
+  const content = L.DomUtil.create("article", "feature-popup feature-info-card");
+  const heading = L.DomUtil.create("header", "feature-info-heading", content);
+  const title = L.DomUtil.create("h2", "", heading);
+  title.textContent = properties.name || properties.titel || properties.bezeichnung || "Entsiegelungsfläche";
+  const subtitle = L.DomUtil.create("p", "feature-info-subtitle", heading);
+  subtitle.textContent = isNatureMonument
+    ? `Naturdenkmal${properties.kennung ? ` · ${properties.kennung}` : ""}`
+    : "Entsiegelungspotenzial";
+
+  const metrics = L.DomUtil.create("div", "feature-metrics", content);
+  const explicitRating = firstProperty(properties, [
+    "bewertungsstufe",
+    "bewertungstufe",
+    "bewertungs_stufe",
+    "bewertung_stufe",
+  ]);
+  const score = Number(properties.score);
+  const rawRating = explicitRating ?? (Number.isInteger(score) && score >= 1 && score <= 5 ? score : null);
+  const rating = Number(rawRating);
+  const validRating = Number.isInteger(rating) && rating >= 1 && rating <= 5;
+  const ratingValue = validRating ? `${rating} / 5` : "Noch nicht bewertet";
+  const ratingNote = validRating
+    ? ["Niedrig", "Gering", "Mittel", "Hoch", "Sehr empfehlenswert"][rating - 1]
+    : "Bewertungsstufe 1 (niedrig) bis 5 (sehr empfehlenswert)";
+  addInfoMetric(metrics, "Bewertungsstufe", ratingValue, ratingNote, validRating ? `rating-${rating}` : "is-unavailable");
+
+  const rawArea = firstProperty(properties, [
+    "entsiegelbare_flaeche_qm",
+    "entsiegelbare_flaeche",
+    "entsiegelungsflaeche_qm",
+    "entsiegelungsflaeche",
+    "flaeche_entsiegelung_qm",
+    "flaeche_entsiegelung",
+    "flaeche_qm",
+  ]);
+  const area = rawArea === null ? null : formatInfoArea(rawArea);
+  addInfoMetric(
+    metrics,
+    "Entsiegelbare Fläche",
+    area || "Nicht hinterlegt",
+    area
+      ? "Für diese Fläche vorgesehene Entsiegelung"
+      : isNatureMonument
+        ? "Im Naturdenkmal-Layer nicht enthalten"
+        : "Flächengröße ist im Datensatz nicht enthalten",
+    area ? "" : "is-unavailable",
+  );
+
+  const rawMeasures = firstProperty(properties, [
+    "vorgeschlagene_massnahmen",
+    "vorgeschlagene_massnahme",
+    "massnahmen_vorschlag",
+    "massnahme_vorschlag",
+    "massnahmen",
+    "massnahme",
+  ]);
+  const measures = formatMeasures(rawMeasures);
+  addInfoMetric(
+    metrics,
+    "Vorgeschlagene Maßnahmen",
+    measures || "Noch nicht zugeordnet",
+    measures
+      ? "Vorschlag für diese Fläche"
+      : isNatureMonument
+        ? "Im Naturdenkmal-Layer nicht enthalten"
+        : "Keine Maßnahmen im Datensatz hinterlegt",
+    measures ? "" : "is-unavailable",
+  );
+
+  const metadataValues = isNatureMonument
+    ? [["Kennung", properties.kennung], ["Objekt-ID", properties.id]]
+    : [["Score", properties.score], ["Priorität", properties.priority]];
+  const metadata = metadataValues.filter(([, value]) => value !== undefined && value !== null && value !== "");
+  const hasLinks = isNatureMonument && (properties.reportlink || properties.rvolink);
+  if (metadata.length || hasLinks) {
+    const section = L.DomUtil.create("section", "feature-info-metadata", content);
+    const metaTitle = L.DomUtil.create("h3", "", section);
+    metaTitle.textContent = "Zusatzinformationen";
+    metadata.forEach(([label, value]) => {
+      const row = L.DomUtil.create("p", "feature-popup-meta-row", section);
+      row.textContent = `${label}: ${value}`;
+    });
+    addExternalInfoLink(section, properties.reportlink, "Fachinformation öffnen");
+    addExternalInfoLink(section, properties.rvolink, "Rechtsverordnung öffnen");
   }
   return content;
 }

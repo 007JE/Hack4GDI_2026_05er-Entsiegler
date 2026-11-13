@@ -1,0 +1,38 @@
+
+{
+  "cold_hot_spots_mainz": {
+    "layer": "cold_hot_spots_mainz",
+    "source": "https://www.klimawandel.rlp.de/Kartenwerke_Klimaanpassung/#13/49.9857/8.2515",
+    "license": "CC-BY-4.0"
+  },
+  "klimatopkarte_mainz": {
+    "layer": "klimatopkarte_mainz",
+    "source": "https://www.klimawandel.rlp.de/Kartenwerke_Klimaanpassung/#13/49.9857/8.2515",
+    "license": "CC-BY-4.0"
+  },
+  "dop20_geoshop_rlp": {
+    "layer": "dop20",
+    "source": "https://geoshop.rlp.de/opendata-digitale_orthofotos.html",
+    "license": "dl-de/by-2-0"
+  },
+  "osm": {
+    "layer": "osm",
+    "source": "https://www.openstreetmap.org/copyright",
+    "license": "ODbL-1.0"
+  },
+  "lanis": {
+    "layer": "lanis",
+    "source": "https://naturschutz.rlp.de/fachanwendungen/lanis-geoportal",
+    "license": "ODbL-1.0"
+  },
+  "zensus_2022_100m": {
+    "layer": "zensus_2022_100m",
+    "source": "https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Zensus2022/_publikationen.html#140395",
+    "license": "dl-de/by-2-0"
+  },
+  "niederschlagskarte2023_Verschneidung": {
+    "layer": "niederschlagskarte2023_Verschneidung",
+    "source": "https://wasserportal.rlp-umwelt.de/kartendienste",
+    "license": "CC-BY-4.0"
+  }
+}

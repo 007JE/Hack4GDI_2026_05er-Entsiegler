@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 ROOT = Path(__file__).resolve().parent
 ADDRESS = ("127.0.0.1", 8000)
 GEOPACKAGE_PATH = ROOT / "data" / "geopackage" / "mainz_base.gpkg"
+NATURE_MONUMENT_GEOPACKAGE_PATH = ROOT / "data" / "geopackage" / "naturdenkmal_point_mainz.gpkg"
 DOP20_GEOPACKAGE_PATH = ROOT / "data" / "geopackage" / "dop20_mainz.gpkg"
 DOP20_TABLE = "dop20"
 MAX_FEATURES = 12_000
@@ -29,12 +30,6 @@ LAYERS = {
         "properties": ("flstkennz", "flaeche_qm", "t_eigentuemer", "nutzung"),
         "style": "parcels",
     },
-    "klima_hitzeinseln": {
-        "label": "Klima-Hitzeinseln",
-        "geometry": "POLYGON",
-        "properties": ("temp_klasse",),
-        "style": "heat",
-    },
     "osm_graues_band_parkplaetze": {
         "label": "Parkplätze / versiegelte Flächen",
         "geometry": "MULTIPOLYGON",
@@ -46,6 +41,13 @@ LAYERS = {
         "geometry": "MULTIPOLYGON",
         "properties": ("leisure", "area_sqm"),
         "style": "green",
+    },
+    "naturdenkmal_point_mainz": {
+        "label": "Naturdenkmale (Info-Prototyp)",
+        "geometry": "MULTIPOINT",
+        "properties": ("id", "flaeche", "kennung", "bezeichnung", "reportlink", "rvolink"),
+        "style": "nature",
+        "path": NATURE_MONUMENT_GEOPACKAGE_PATH,
     },
 }
 
@@ -227,11 +229,12 @@ def parse_bbox(query):
 
 def geopackage_features(layer_name, bounds):
     layer = LAYERS[layer_name]
-    if not GEOPACKAGE_PATH.is_file():
-        raise FileNotFoundError(f"GeoPackage nicht gefunden: {GEOPACKAGE_PATH.name}")
+    geopackage_path = layer.get("path", GEOPACKAGE_PATH)
+    if not geopackage_path.is_file():
+        raise FileNotFoundError(f"GeoPackage nicht gefunden: {geopackage_path.name}")
 
     min_x, min_y, max_x, max_y = bounds
-    connection = sqlite3.connect(f"file:{GEOPACKAGE_PATH.as_posix()}?mode=ro", uri=True)
+    connection = sqlite3.connect(f"file:{geopackage_path.as_posix()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
         layer_metadata = connection.execute(
@@ -503,10 +506,13 @@ class ProjectRequestHandler(SimpleHTTPRequestHandler):
             self.send_json(404, {"error": f"GeoPackage {GEOPACKAGE_PATH.name} wurde nicht gefunden."})
             return
         try:
-            connection = sqlite3.connect(f"file:{GEOPACKAGE_PATH.as_posix()}?mode=ro", uri=True)
-            try:
-                layers = []
-                for name, metadata in LAYERS.items():
+            layers = []
+            for name, metadata in LAYERS.items():
+                geopackage_path = metadata.get("path", GEOPACKAGE_PATH)
+                if not geopackage_path.is_file():
+                    continue
+                connection = sqlite3.connect(f"file:{geopackage_path.as_posix()}?mode=ro", uri=True)
+                try:
                     row = connection.execute(
                         "SELECT data_type, srs_id FROM gpkg_contents WHERE table_name = ?",
                         (name,),
@@ -521,8 +527,8 @@ class ProjectRequestHandler(SimpleHTTPRequestHandler):
                         "count": count,
                         "style": metadata["style"],
                     })
-            finally:
-                connection.close()
+                finally:
+                    connection.close()
         except sqlite3.Error as error:
             self.send_json(500, {"error": f"GeoPackage konnte nicht gelesen werden: {error}."})
             return

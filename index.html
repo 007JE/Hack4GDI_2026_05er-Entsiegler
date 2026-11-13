@@ -78,15 +78,6 @@
                     <button class="layer-order-move" type="button" data-direction="down" aria-label="Parkplätze und versiegelte Flächen nach unten verschieben">↓</button>
                   </span>
                 </li>
-                <li class="layer-order-item" data-layer-id="gpkg:klima_hitzeinseln" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">Klima-Hitzeinseln</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Klima-Hitzeinseln nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Klima-Hitzeinseln nach unten verschieben">↓</button>
-                  </span>
-                </li>
                 <li class="layer-order-item" data-layer-id="gpkg:alkis_flurstuecke" draggable="true">
                   <span class="layer-order-grip" aria-hidden="true">⠿</span>
                   <span class="layer-order-name">ALKIS-Flurstücke</span>
@@ -94,6 +85,15 @@
                   <span class="layer-order-actions">
                     <button class="layer-order-move" type="button" data-direction="up" aria-label="ALKIS-Flurstücke nach oben verschieben">↑</button>
                     <button class="layer-order-move" type="button" data-direction="down" aria-label="ALKIS-Flurstücke nach unten verschieben">↓</button>
+                  </span>
+                </li>
+                <li class="layer-order-item" data-layer-id="gpkg:naturdenkmal_point_mainz" draggable="true">
+                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
+                  <span class="layer-order-name">Naturdenkmale (Info-Prototyp)</span>
+                  <span class="layer-order-visibility" data-layer-visibility></span>
+                  <span class="layer-order-actions">
+                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Naturdenkmale nach oben verschieben">↑</button>
+                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Naturdenkmale nach unten verschieben">↓</button>
                   </span>
                 </li>
                 <li class="layer-order-item" data-layer-id="aerial" draggable="true">
@@ -145,15 +145,10 @@
                 <span data-gpkg-label>ALKIS-Flurstücke</span>
               </label>
               <label class="layer-toggle">
-                <input id="toggle-gpkg-klima_hitzeinseln" type="checkbox">
-                <span class="layer-swatch heat-swatch" aria-hidden="true"></span>
-                <span data-gpkg-label>Klima-Hitzeinseln</span>
+                <input id="toggle-gpkg-naturdenkmal_point_mainz" type="checkbox" checked>
+                <span class="layer-swatch nature-swatch" aria-hidden="true"></span>
+                <span data-gpkg-label>Naturdenkmale (Info-Prototyp)</span>
               </label>
-              <div class="heat-legend" aria-label="Temperaturklassen der Hitzeinseln">
-                <span><i class="heat-legend-swatch heat-medium" aria-hidden="true"></i>Mittel</span>
-                <span><i class="heat-legend-swatch heat-high" aria-hidden="true"></i>Hoch</span>
-                <span><i class="heat-legend-swatch heat-extreme" aria-hidden="true"></i>Extrem</span>
-              </div>
               <label class="layer-toggle">
                 <input id="toggle-gpkg-osm_graues_band_parkplaetze" type="checkbox">
                 <span class="layer-swatch grey-swatch" aria-hidden="true"></span>
@@ -318,5 +313,12 @@
         <p id="information-status" class="toolbox-status" role="status" aria-live="polite" hidden></p>
       </aside>
     </main>
+    <footer class="license-banner" aria-label="Lizenzen und Datennachweise">
+      <h2 class="sr-only">Lizenzen und Datennachweise</h2>
+      <p id="license-status" class="license-status" role="status" aria-live="polite">Lizenzhinweise werden geladen …</p>
+      <div class="license-marquee" aria-label="Laufende Lizenzhinweise">
+        <div id="license-track" class="license-track" hidden></div>
+      </div>
+    </footer>
   </body>
 </html>

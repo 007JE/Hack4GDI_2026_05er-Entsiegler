@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "status": "Vorschlag zur fachlichen Abstimmung; kein fertiger GIS-Layer",
+  "categories": [
+    {
+      "id": "gebaeudebegruenung",
+      "name": "Gebäudebegrünung"
+    },
+    {
+      "id": "durchlaessige_belaege",
+      "name": "Durchlässige Beläge"
+    },
+    {
+      "id": "stadtgruen",
+      "name": "Stadtgrün und Biodiversität"
+    },
+    {
+      "id": "regenwasser",
+      "name": "Regenwasserbewirtschaftung"
+    }
+  ],
+  "measures": [
+    {
+      "id": "dachbegruenung",
+      "name": "Flachdachbegrünung",
+      "category": "gebaeudebegruenung",
+      "summary": "Begrünung geeigneter Flachdächer als zusätzliche Vegetations- und Regenrückhaltefläche.",
+      "proposeWhen": [
+        "Ein Gebäude mit Flachdach liegt auf oder an einer geeigneten Fläche.",
+        "Dachaufbau, Statik, Eigentum und Nutzung lassen eine Begrünung grundsätzlich zu."
+      ],
+      "source": "https://topgreen-gruendach.de/flachdach-begruenen"
+    },
+    {
+      "id": "fassadenbegruenung",
+      "name": "Vertikale Begrünung / Fassadenbegrünung",
+      "category": "gebaeudebegruenung",
+      "summary": "Begrünung geeigneter Fassaden oder Innenhöfe, wenn am Boden wenig Platz verfügbar ist.",
+      "proposeWhen": [
+        "Geeignete Fassaden oder Innenhofwände sind vorhanden.",
+        "Am Boden ist wenig Platz für zusätzliche Begrünung verfügbar."
+      ],
+      "source": "https://www.fassadengruen.de/vertikalbegruenung.html"
+    },
+    {
+      "id": "wasserdurchlaessiger_belag",
+      "name": "Wasserdurchlässige Bodenbeläge",
+      "category": "durchlaessige_belaege",
+      "summary": "Teilentsiegelung mit versickerungsfähigen Belägen oder Fugen, zum Beispiel Rasengittersteinen oder Ökopflaster.",
+      "proposeWhen": [
+        "Die befestigte Fläche soll weiter genutzt werden, zum Beispiel als Parkplatz oder Gehweg.",
+        "Belastung, Unterbau und Bodenverhältnisse erlauben einen wasserdurchlässigen Belag."
+      ],
+      "source": "https://www.sieker.de/fachinformationen/regenwasserbewirtschaftung/article/durchlaessige-pflasterbelaege-151.html"
+    },
+    {
+      "id": "bluehstreifen",
+      "name": "Blühstreifen",
+      "category": "stadtgruen",
+      "summary": "Anlage blütenreicher Säume als Nahrungs-, Lebens- und Rückzugsraum für Tiere.",
+      "proposeWhen": [
+        "Ein freier Randstreifen oder eine wenig genutzte Grünfläche ist vorhanden.",
+        "Die Fläche soll vor allem als Lebens- und Nahrungsraum für Tiere aufgewertet werden."
+      ],
+      "source": "https://www.agrar.basf.de/dam/OneCMS-Assets/Global-Assets/General-Documents/DE/nachhaltigkeit_1/bluehstreifen_bluehflaechen/bluehstreifen-bluehflaechen-DE.pdf"
+    },
+    {
+      "id": "schwammstadt",
+      "name": "Schwammstadt-Prinzip",
+      "category": "regenwasser",
+      "summary": "Kombination geeigneter Maßnahmen, um Regenwasser vor Ort zurückzuhalten, zu speichern, zu versickern oder zu nutzen.",
+      "proposeWhen": [
+        "Auf einer Fläche oder in einem Quartier können mehrere Regenwassermaßnahmen zusammenwirken.",
+        "Regenwasser soll möglichst vor Ort zurückgehalten, gespeichert, versickert oder genutzt werden."
+      ],
+      "source": "https://www.bahl-gaerten.de/regenwasser-im-garten-nutzen-das-schwammstadt-prinzip-fuer-private-gaerten/"
+    },
+    {
+      "id": "gruener_gully",
+      "name": "Grüner Gully",
+      "category": "regenwasser",
+      "summary": "Ableitung von Straßenablaufwasser in begrünte, versickerungsfähige Bereiche statt direkt in die Kanalisation.",
+      "proposeWhen": [
+        "Straßenablaufwasser kann einer angrenzenden Grünfläche zugeführt werden.",
+        "Ein geeigneter Straßenablauf und ausreichend Platz für eine sichere Ableitung sind vorhanden."
+      ],
+      "source": "https://regenwasseragentur.berlin/magazin/gruene-gullys-in-mitte/"
+    },
+    {
+      "id": "pocket_park",
+      "name": "Pocket Park",
+      "category": "stadtgruen",
+      "summary": "Kleine, intensiv begrünte Aufenthaltsfläche mit Bäumen, Sträuchern und heimischen Blühpflanzen.",
+      "proposeWhen": [
+        "Eine zusammenhängende Freifläche kann als öffentlich nutzbarer Grün- und Aufenthaltsraum entwickelt werden.",
+        "In der Umgebung besteht ein Bedarf an Abkühlung und zusätzlichem Grün."
+      ],
+      "source": "https://www.bochum.de/Die-Bochum-Strategie/Die-Kompetenzen-der-Strategie/Grossstadt-mit-Lebensgefuehl/Pocket-Parks"
+    },
+    {
+      "id": "gruenflaeche_mit_baeumen",
+      "name": "Grünfläche mit Bäumen",
+      "category": "stadtgruen",
+      "summary": "Begrünung einer mittleren straßenbegleitenden Fläche mit Bäumen.",
+      "proposeWhen": [
+        "Eine mittelgroße Freifläche entlang einer Straße ist vorhanden.",
+        "Standort, Leitungen und verfügbare Fläche lassen Baumpflanzungen zu."
+      ],
+      "source": null,
+      "sourceNote": "Maßnahmenzuordnung in Maßnahmen.docx"
+    },
+    {
+      "id": "versickerungsmulde",
+      "name": "Versickerungsmulde",
+      "category": "regenwasser",
+      "summary": "Dauerhaft begrünte Geländemulde zur kurzfristigen oberirdischen Speicherung und Versickerung von Regenwasser.",
+      "proposeWhen": [
+        "Eine ausreichend große, tiefer liegende Freifläche ist verfügbar.",
+        "Es fällt Regenwasser an, das nach Prüfung der Boden- und Grundwasserverhältnisse versickern kann."
+      ],
+      "source": "https://www.sieker.de/fachinformationen/regenwasserbewirtschaftung/versickerung/article/versickerungsmulden-156.html"
+    },
+    {
+      "id": "regengarten",
+      "name": "Regengarten",
+      "category": "regenwasser",
+      "summary": "Begrünte Senke, die Oberflächenwasser sammelt und dessen Versickerung oder Nutzung unterstützt.",
+      "proposeWhen": [
+        "Oberflächenwasser von Dach-, Straßen-, Gehweg- oder Hofflächen kann in eine begrünte Senke geleitet werden.",
+        "Platz sowie geeignete Boden- und Versickerungsverhältnisse sind vorhanden."
+      ],
+      "source": "https://biblus.accasoftware.com/de/projekt-eines-regengartens-hier-ein-technischer-leitfaden/"
+    }
+  ],
+  "areaProfiles": [
+    {
+      "id": "gross_heiss_wenig_gruen",
+      "description": "Große Fläche, hohe Hitzebelastung, wenig Grün",
+      "possibilities": [
+        {
+          "measureId": "pocket_park",
+          "when": "Wenn die Fläche als zugänglicher Grün- und Aufenthaltsraum entwickelt werden kann."
+        },
+        {
+          "measureId": "schwammstadt",
+          "when": "Wenn zusätzlich Regenwasser vor Ort zurückgehalten oder genutzt werden soll und mehrere Bausteine kombinierbar sind."
+        },
+        {
+          "measureId": "versickerungsmulde",
+          "when": "Wenn Regenwasser anfällt, ausreichend Fläche vorhanden ist und die Standortprüfung Versickerung zulässt."
+        }
+      ]
+    },
+    {
+      "id": "strassenbegleitende_mittelflaeche",
+      "description": "Mittelgroße Fläche entlang einer Straße",
+      "possibilities": [
+        {
+          "measureId": "bluehstreifen",
+          "when": "Wenn ein Randstreifen begrünt werden kann und die Aufwertung der Biodiversität im Vordergrund steht."
+        },
+        {
+          "measureId": "gruenflaeche_mit_baeumen",
+          "when": "Wenn entlang der Straße ausreichend Platz für eine begrünte Fläche mit Bäumen besteht."
+        },
+        {
+          "measureId": "gruener_gully",
+          "when": "Wenn Straßenablaufwasser gezielt in die Fläche geleitet werden kann."
+        },
+        {
+          "measureId": "regengarten",
+          "when": "Wenn Oberflächenwasser zufließt und Platz sowie geeignete Versickerungsverhältnisse vorhanden sind."
+        }
+      ]
+    },
+    {
+      "id": "kleine_strassenrandflaeche_mit_zufluss",
+      "description": "Kleine Straßenrandfläche mit möglichem Regenwasserzufluss",
+      "possibilities": [
+        {
+          "measureId": "gruener_gully",
+          "when": "Wenn Straßenablaufwasser sicher in eine begrünte Fläche geleitet werden kann."
+        },
+        {
+          "measureId": "regengarten",
+          "when": "Wenn eine begrünte Senke angelegt werden kann und die Bodenverhältnisse geeignet sind."
+        },
+        {
+          "measureId": "schwammstadt",
+          "when": "Wenn die Fläche Teil eines größeren, abgestimmten Regenwasserkonzepts ist."
+        }
+      ]
+    },
+    {
+      "id": "parkplatz_nutzung_bleibt",
+      "description": "Parkplatz, dessen Stellplatznutzung erhalten bleiben soll",
+      "possibilities": [
+        {
+          "measureId": "wasserdurchlaessiger_belag",
+          "when": "Wenn die Stellplatznutzung bestehen bleibt und Unterbau sowie Belastung einen durchlässigen Belag erlauben."
+        },
+        {
+          "measureId": "regengarten",
+          "when": "Wenn zusätzlich eine angrenzende geeignete Fläche Regenwasser aufnehmen kann."
+        },
+        {
+          "measureId": "schwammstadt",
+          "when": "Wenn Belagswechsel und weitere Regenwasserbausteine zusammen geplant werden."
+        }
+      ]
+    },
+    {
+      "id": "grossflaeche_hoher_regenzufluss",
+      "description": "Größere Fläche mit hohem Regenwasseraufkommen",
+      "possibilities": [
+        {
+          "measureId": "versickerungsmulde",
+          "when": "Wenn ausreichend Fläche verfügbar ist und Boden- sowie Grundwasserverhältnisse die Versickerung zulassen."
+        },
+        {
+          "measureId": "regengarten",
+          "when": "Wenn Teilbereiche als begrünte Senken gestaltet werden können."
+        },
+        {
+          "measureId": "schwammstadt",
+          "when": "Wenn mehrere Maßnahmen zum Rückhalt, zur Versickerung oder Nutzung des Wassers kombiniert werden."
+        }
+      ]
+    }
+  ]
+}

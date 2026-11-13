@@ -27,8 +27,10 @@ Danach <http://127.0.0.1:8000> im Browser öffnen. Auf anderen Systemen kann der
 - Kartenmenü mit „Datengrundlage“ und „Filter“ startet eingeklappt; erneuter Klick auf den offenen Menüpunkt klappt ihn zu
 - Layer-Untermenüs starten ebenfalls eingeklappt; die Karte fokussiert automatisch Mainz anhand des Gemeindeumrings
 - Lokales DOP20-Luftbild aus `data/geopackage/dop20_mainz.gpkg`; der Python-Server stellt die GeoPackage-Kacheln für Leaflet bereit
-- lokale GeoPackage-Layer aus `data/geopackage/mainz_base.gpkg` (ALKIS-Flurstücke, Hitzeinseln, Parkplätze/versiegelte Flächen und Grünflächen)
-- Hitzeinseln sind nach den GeoPackage-Temperaturklassen „Mittel“, „Hoch“ und „Extrem“ abgestuft eingefärbt
+- lokale GeoPackage-Layer aus `data/geopackage/mainz_base.gpkg` (ALKIS-Flurstücke, Parkplätze/versiegelte Flächen und Grünflächen)
+- Naturdenkmal-Punktlayer aus `data/geopackage/naturdenkmal_point_mainz.gpkg` zum Erproben der Objektinfo mit Bezeichnung, Kennung und Quellenlinks
+- gestaltete Info-Karte mit Bewertungsstufe (1–5), entsiegelbarer Fläche und Maßnahmenvorschlägen; fehlende Werte werden als nicht hinterlegt markiert
+- dauerhaft laufender Lizenzbanner am unteren Bildschirmrand, gespeist aus `scoring/lizenz.json`; die Quellen und bekannten Lizenzbedingungen sind verlinkt
 - Adresssuche über den Geocoding-Dienst Nominatim
 - Strecke messen sowie Flächen als Polygon oder aufgezogenes Rechteck messen
 - GeoJSON-Flächen nach Score und Prioritätsklasse filtern
@@ -42,10 +44,15 @@ Für die spätere Flächenintegration dient `data/geojson/entsiegelungskandidate
 
 - `index.html`, `app.js`, `style/style.css`: Weboberfläche und Kartenfunktionen
 - `data/bilder/`: Projektlogo und weitere Webbilder
-- `data/geojson/`: GeoJSON-Exporte, statischer Mainzer Umring und GeoPackage-Layer für Server ohne API
+- `data/geojson/`: GeoJSON-Exporte, statischer Mainzer Umring und vorbereitete GeoPackage-Layer für Server ohne API
+- `data/geojson/geopackage/naturdenkmal_point_mainz.geojson`: statischer Fallback des Naturdenkmal-Layers
 - `data/geopackage/mainz_base.gpkg`: lokale QGIS-Datenbank mit ALKIS-Flurstücken und weiteren Analyse-Layern
+- `data/geopackage/naturdenkmal_point_mainz.gpkg`: Naturdenkmal-Punkte als klickbare Beispieldaten für die Objektinfo; enthält selbst keine Entsiegelungsbewertung, -fläche oder Maßnahmenvorschläge
 - `data/geopackage/dop20_mainz.gpkg`: lokales DOP20-Luftbild für die Kartenansicht
 - `data/geopackage/dop20_tiles.json` und `data/geopackage/dop20_tiles/`: statischer Fallback-Export der DOP20-Kacheln für Server ohne GeoPackage-API
 - `data/geopackage/mainz_umring.gpkg`: Gemeindeumring Mainz als QGIS-Datengrundlage; für den Betrieb auch unter statischen Servern liegt der Umring zusätzlich als `data/geojson/mainz_umring.geojson` vor
 - `data/luftbilder/`: vorgesehene Ablage für Luftbilder
 - `scoring/`: vorbereitete Dokumentation der späteren Bewertungsmethodik
+- `scoring/lizenz.json`: zentrale Quelle für die im laufenden Banner angezeigten Layer-, Quellen- und Lizenzangaben
+- `scoring/Maßnahmen.docx`: bereitgestellte Maßnahmenbeschreibung und erste Zuordnungsideen
+- `scoring/massnahmenkatalog.json` und `scoring/massnahmenkatalog.md`: strukturierter Maßnahmenkatalog mit vorläufigen Flächenprofilen für die spätere GIS-Integration
