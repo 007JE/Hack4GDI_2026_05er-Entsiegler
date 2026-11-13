@@ -111,8 +111,8 @@ function loadDop20Layer() {
           );
         });
     })
-    .then(({ tiles, bounds, tileWidth = 256, tileHeight = 256 }) => {
-      if (!Array.isArray(tiles) || tiles.length === 0) {
+    .then(({ tiles, tileWidth = 256, tileHeight = 256, sourceOrigin, pixelSize, webMercatorBounds }) => {
+      if (!Array.isArray(tiles) || tiles.length === 0 || !sourceOrigin || !pixelSize || !webMercatorBounds) {
         throw new Error("Das DOP20-GeoPackage enthält keine Bildkacheln.");
       }
 
@@ -146,23 +146,96 @@ function loadDop20Layer() {
 
       aerialStatus.textContent = `${tiles.length} DOP20-Quellkacheln werden zusammengesetzt …`;
       return Promise.all(tiles.map(loadTile)).then(() => {
-        const mosaicBounds = bounds || [
-          [
-            Math.min(...tiles.map((tile) => tile.bounds[0][0])),
-            Math.min(...tiles.map((tile) => tile.bounds[0][1])),
-          ],
-          [
-            Math.max(...tiles.map((tile) => tile.bounds[1][0])),
-            Math.max(...tiles.map((tile) => tile.bounds[1][1])),
-          ],
+        const [minX, minY] = webMercatorBounds[0];
+        const [maxX, maxY] = webMercatorBounds[1];
+        const outputCanvas = document.createElement("canvas");
+        outputCanvas.width = canvas.width;
+        outputCanvas.height = Math.round(canvas.width * (maxY - minY) / (maxX - minX));
+        const output = outputCanvas.getContext("2d");
+        if (!output) throw new Error("Der Browser kann das DOP20-Luftbild nicht georeferenzieren.");
+
+        const projectSourcePoint = (sourceX, sourceY) => {
+          const easting = sourceOrigin[0] + sourceX * pixelSize[0];
+          const northing = sourceOrigin[1] - sourceY * pixelSize[1];
+          const [longitude, latitude] = utmToWgs84(easting, northing);
+          const radians = Math.PI / 180;
+          const radius = 6378137;
+          return [
+            ((radius * longitude * radians - minX) / (maxX - minX)) * outputCanvas.width,
+            ((maxY - radius * Math.log(Math.tan(Math.PI / 4 + latitude * radians / 2))) / (maxY - minY))
+              * outputCanvas.height,
+          ];
+        };
+
+        const sourceTriangle = (sourcePoints, targetPoints) => {
+          const [p0, p1, p2] = sourcePoints;
+          const [q0, q1, q2] = targetPoints;
+          const determinant = p0[0] * (p1[1] - p2[1])
+            + p1[0] * (p2[1] - p0[1])
+            + p2[0] * (p0[1] - p1[1]);
+          if (!determinant) return;
+          const transform = (a0, a1, a2) => [
+            (a0 * (p1[1] - p2[1]) + a1 * (p2[1] - p0[1]) + a2 * (p0[1] - p1[1])) / determinant,
+            (a0 * (p2[0] - p1[0]) + a1 * (p0[0] - p2[0]) + a2 * (p1[0] - p0[0])) / determinant,
+            (a0 * (p1[0] * p2[1] - p2[0] * p1[1])
+              + a1 * (p2[0] * p0[1] - p0[0] * p2[1])
+              + a2 * (p0[0] * p1[1] - p1[0] * p0[1])) / determinant,
+          ];
+          const [a, c, e] = transform(q0[0], q1[0], q2[0]);
+          const [b, d, f] = transform(q0[1], q1[1], q2[1]);
+
+          output.save();
+          output.beginPath();
+          output.moveTo(q0[0], q0[1]);
+          output.lineTo(q1[0], q1[1]);
+          output.lineTo(q2[0], q2[1]);
+          output.closePath();
+          output.clip();
+          output.setTransform(a, b, c, d, e, f);
+          output.drawImage(canvas, 0, 0);
+          output.restore();
+        };
+
+        const meshSegments = 8;
+        const sourceWidth = canvas.width / (maxColumn - minColumn + 1);
+        const sourceHeight = canvas.height / (maxRow - minRow + 1);
+        const cellWidth = sourceWidth / meshSegments;
+        const cellHeight = sourceHeight / meshSegments;
+        tiles.forEach((tile) => {
+          const tileX = (tile.column - minColumn) * sourceWidth;
+          const tileY = (tile.row - minRow) * sourceHeight;
+          for (let row = 0; row < meshSegments; row += 1) {
+            for (let column = 0; column < meshSegments; column += 1) {
+              const x = tileX + column * cellWidth;
+              const y = tileY + row * cellHeight;
+              const source = [
+                [x, y],
+                [x + cellWidth, y],
+                [x + cellWidth, y + cellHeight],
+                [x, y + cellHeight],
+              ];
+              const target = source.map(([sourceX, sourceY]) => projectSourcePoint(sourceX, sourceY));
+              sourceTriangle([source[0], source[1], source[2]], [target[0], target[1], target[2]]);
+              sourceTriangle([source[0], source[2], source[3]], [target[0], target[2], target[3]]);
+            }
+          }
+        });
+
+        const radius = 6378137;
+        const mercatorToLatitude = (northing) => (
+          2 * Math.atan(Math.exp(northing / radius)) - Math.PI / 2
+        ) * 180 / Math.PI;
+        const overlayBounds = [
+          [mercatorToLatitude(minY), minX / radius * 180 / Math.PI],
+          [mercatorToLatitude(maxY), maxX / radius * 180 / Math.PI],
         ];
-        const overlay = L.imageOverlay(canvas.toDataURL("image/png"), mosaicBounds, {
+        const overlay = L.imageOverlay(outputCanvas.toDataURL("image/png"), overlayBounds, {
           pane: dataLayerPaneNames.get("aerial"),
           interactive: false,
           alt: "DOP20-Luftbild Mainz",
         });
         overlay.once("load", () => {
-          aerialStatus.textContent = `DOP20 Mainz geladen (${tiles.length} Quellkacheln, mosaikiert).`;
+          aerialStatus.textContent = `DOP20 Mainz geladen (${tiles.length} Quellkacheln, reprojiziert).`;
         });
         aerialLayer.addLayer(overlay);
         return overlay;
@@ -175,6 +248,49 @@ function loadDop20Layer() {
     });
 
   return aerialLoadPromise;
+}
+
+function utmToWgs84(easting, northing) {
+  const flattening = 1 / 298.257223563;
+  const eccentricitySquared = flattening * (2 - flattening);
+  const secondEccentricitySquared = eccentricitySquared / (1 - eccentricitySquared);
+  const scale = 0.9996;
+  const semiMajorAxis = 6378137;
+  const eccentricityPrime = (1 - Math.sqrt(1 - eccentricitySquared))
+    / (1 + Math.sqrt(1 - eccentricitySquared));
+  const meridian = northing / scale;
+  const mu = meridian / (
+    semiMajorAxis * (1 - eccentricitySquared / 4 - 3 * eccentricitySquared ** 2 / 64
+      - 5 * eccentricitySquared ** 3 / 256)
+  );
+  const footpoint = mu
+    + (3 * eccentricityPrime / 2 - 27 * eccentricityPrime ** 3 / 32) * Math.sin(2 * mu)
+    + (21 * eccentricityPrime ** 2 / 16 - 55 * eccentricityPrime ** 4 / 32) * Math.sin(4 * mu)
+    + (151 * eccentricityPrime ** 3 / 96) * Math.sin(6 * mu)
+    + (1097 * eccentricityPrime ** 4 / 512) * Math.sin(8 * mu);
+  const sinFootpoint = Math.sin(footpoint);
+  const cosFootpoint = Math.cos(footpoint);
+  const tangent = Math.tan(footpoint);
+  const c1 = secondEccentricitySquared * cosFootpoint ** 2;
+  const t1 = tangent ** 2;
+  const n1 = semiMajorAxis / Math.sqrt(1 - eccentricitySquared * sinFootpoint ** 2);
+  const r1 = semiMajorAxis * (1 - eccentricitySquared)
+    / (1 - eccentricitySquared * sinFootpoint ** 2) ** 1.5;
+  const d = (easting - 500000) / (n1 * scale);
+  const d2 = d ** 2;
+  const latitude = footpoint - (n1 * tangent / r1) * (
+    d2 / 2
+    - (5 + 3 * t1 + 10 * c1 - 4 * c1 ** 2 - 9 * secondEccentricitySquared) * d2 ** 2 / 24
+    + (61 + 90 * t1 + 298 * c1 + 45 * t1 ** 2 - 252 * secondEccentricitySquared - 3 * c1 ** 2)
+      * d2 ** 3 / 720
+  );
+  const longitude = Math.PI / 20 + (
+    d
+    - (1 + 2 * t1 + c1) * d ** 3 / 6
+    + (5 - 2 * c1 + 28 * t1 - 3 * c1 ** 2 + 8 * secondEccentricitySquared + 24 * t1 ** 2)
+      * d ** 5 / 120
+  ) / cosFootpoint;
+  return [longitude * 180 / Math.PI, latitude * 180 / Math.PI];
 }
 
 let mainzBoundaryPromise;

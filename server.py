@@ -375,12 +375,32 @@ def geopackage_dop20_tiles():
     mosaic_south = max_y - (max_row + 1) * tile_height * pixel_y
     southwest = utm_to_wgs84(mosaic_west, mosaic_south)
     northeast = utm_to_wgs84(mosaic_east, mosaic_north)
+    source_corners = [
+        utm_to_wgs84(mosaic_west, mosaic_north),
+        utm_to_wgs84(mosaic_east, mosaic_north),
+        utm_to_wgs84(mosaic_east, mosaic_south),
+        utm_to_wgs84(mosaic_west, mosaic_south),
+    ]
+    web_mercator_radius = 6_378_137.0
+    projected_corners = [
+        (
+            web_mercator_radius * math.radians(longitude),
+            web_mercator_radius * math.log(math.tan(math.pi / 4 + math.radians(latitude) / 2)),
+        )
+        for longitude, latitude in source_corners
+    ]
     return {
         "layer": DOP20_TABLE,
         "tiles": tiles,
         "zoomLevels": sorted(zoom_levels),
         "tileWidth": tile_width,
         "tileHeight": tile_height,
+        "sourceOrigin": [mosaic_west, mosaic_north],
+        "pixelSize": [pixel_x, pixel_y],
+        "webMercatorBounds": [
+            [min(point[0] for point in projected_corners), min(point[1] for point in projected_corners)],
+            [max(point[0] for point in projected_corners), max(point[1] for point in projected_corners)],
+        ],
         "bounds": [[southwest[1], southwest[0]], [northeast[1], northeast[0]]],
     }
 
