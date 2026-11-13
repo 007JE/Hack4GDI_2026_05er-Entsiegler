@@ -25,43 +25,28 @@
 
     <main class="map-layout">
       <div id="map" aria-label="Interaktive Karte des Stadtgebiets Mainz"></div>
-      <aside class="control-panel" aria-label="Kartensteuerung">
-        <div class="panel-tabs" role="tablist" aria-label="Kartenmenü">
+      <aside class="control-panel is-collapsed" aria-label="Kartensteuerung">
+        <div class="panel-tabs" role="group" aria-label="Kartenmenü">
           <button
             id="data-tab"
             class="panel-tab"
             type="button"
-            role="tab"
-            aria-selected="true"
+            aria-expanded="false"
             aria-controls="data-panel"
           >Datengrundlage</button>
           <button
             id="filter-tab"
             class="panel-tab"
             type="button"
-            role="tab"
-            aria-selected="false"
+            aria-expanded="false"
             aria-controls="filter-panel"
-            tabindex="-1"
           >Filter</button>
         </div>
 
-        <div id="data-panel" class="tab-panel layer-panel" role="tabpanel" aria-labelledby="data-tab">
+        <div id="data-panel" class="tab-panel layer-panel" role="region" aria-labelledby="data-tab" hidden>
           <h2>Datengrundlage</h2>
           <p class="section-hint">Hintergrundkarten und vorhandene räumliche Daten.</p>
-          <details class="layer-group area-selection-group" open>
-            <summary>Gebietseingrenzung</summary>
-            <div class="layer-group-content">
-              <label class="field-label" for="area-selector">Kartenausschnitt</label>
-              <select id="area-selector" class="area-selector">
-                <option value="mainz" selected>Mainz</option>
-                <option value="rhinelandPalatinate">Rheinland-Pfalz</option>
-                <option value="germany">Deutschland</option>
-              </select>
-              <p id="area-status" class="layer-status" role="status" aria-live="polite"></p>
-            </div>
-          </details>
-          <details class="layer-group layer-order-group" open>
+          <details class="layer-group layer-order-group">
             <summary>Layer-Reihenfolge ändern · Drag &amp; Drop</summary>
             <div class="layer-group-content">
               <p class="section-hint">Ziehe Layer an die gewünschte Position. Der oberste Eintrag liegt auf der Karte ganz oben. Die Pfeile verschieben Layer alternativ per Klick.</p>
@@ -133,7 +118,7 @@
               <p id="layer-order-status" class="layer-order-status" role="status" aria-live="polite"></p>
             </div>
           </details>
-          <details class="layer-group" open>
+          <details class="layer-group">
             <summary>Hintergrundkarten</summary>
             <div class="layer-group-content">
               <label class="layer-toggle">
@@ -151,7 +136,7 @@
               </p>
             </div>
           </details>
-          <details class="layer-group" open>
+          <details class="layer-group">
             <summary>GeoPackage · QGIS-Datengrundlage</summary>
             <div class="layer-group-content">
               <label class="layer-toggle">
@@ -164,6 +149,11 @@
                 <span class="layer-swatch heat-swatch" aria-hidden="true"></span>
                 <span data-gpkg-label>Klima-Hitzeinseln</span>
               </label>
+              <div class="heat-legend" aria-label="Temperaturklassen der Hitzeinseln">
+                <span><i class="heat-legend-swatch heat-medium" aria-hidden="true"></i>Mittel</span>
+                <span><i class="heat-legend-swatch heat-high" aria-hidden="true"></i>Hoch</span>
+                <span><i class="heat-legend-swatch heat-extreme" aria-hidden="true"></i>Extrem</span>
+              </div>
               <label class="layer-toggle">
                 <input id="toggle-gpkg-osm_graues_band_parkplaetze" type="checkbox">
                 <span class="layer-swatch grey-swatch" aria-hidden="true"></span>
@@ -190,32 +180,12 @@
               <p class="section-hint">Für die Website exportierte Flächen.</p>
             </div>
           </details>
-          <details class="layer-group">
-            <summary>Adresssuche</summary>
-            <div class="layer-group-content">
-              <form id="search-form" class="search-form" role="search">
-                <label class="sr-only" for="address-search">Adresse oder Ort suchen</label>
-                <input
-                  id="address-search"
-                  name="address"
-                  type="search"
-                  placeholder="Adresse oder Ort in Mainz"
-                  autocomplete="street-address"
-                  required
-                >
-                <button class="icon-button search-button" type="submit" aria-label="Suchen">
-                  <span aria-hidden="true">⌕</span>
-                </button>
-              </form>
-              <p id="search-status" class="inline-status" role="status" aria-live="polite"></p>
-            </div>
-          </details>
         </div>
 
-        <div id="filter-panel" class="tab-panel layer-panel" role="tabpanel" aria-labelledby="filter-tab" hidden>
+        <div id="filter-panel" class="tab-panel layer-panel" role="region" aria-labelledby="filter-tab" hidden>
           <h2>Filter</h2>
           <p class="section-hint">Entsiegelungskandidaten nach Bewertung eingrenzen.</p>
-          <details class="layer-group" open>
+          <details class="layer-group">
             <summary>
               <span>Flächenfilter</span>
               <span id="feature-count" class="count-badge">0</span>
@@ -256,7 +226,7 @@
             </div>
           </details>
         </div>
-        <p class="map-credit">
+        <p class="map-credit" hidden>
           Adresssuche:
           <a href="https://nominatim.org/" target="_blank" rel="noreferrer">Nominatim</a>
           / OpenStreetMap · DOP20-Luftbild aus lokalem GeoPackage · ALKIS-Flurstücke aus lokalem GeoPackage
@@ -267,6 +237,14 @@
           <button id="zoom-in" class="toolbox-button zoom-button" type="button" aria-label="Karte vergrößern" title="Vergrößern">+</button>
           <button id="zoom-out" class="toolbox-button zoom-button" type="button" aria-label="Karte verkleinern" title="Verkleinern">−</button>
           <span class="toolbox-divider" aria-hidden="true"></span>
+          <button
+            id="search-toggle"
+            class="toolbox-button"
+            type="button"
+            aria-expanded="false"
+            aria-controls="search-menu"
+            title="Adresse oder Ort suchen"
+          ><span aria-hidden="true">⌕</span><span>Suchen</span></button>
           <button
             id="measure-toggle"
             class="toolbox-button"
@@ -280,9 +258,30 @@
             class="toolbox-button"
             type="button"
             aria-pressed="false"
-            title="Informationen zu Kartenobjekten anzeigen"
-          ><span class="information-icon" aria-hidden="true">i</span><span>Info</span></button>
+            title="Info-Modus aktivieren: Objektinformationen durch Anklicken anzeigen"
+          ><span class="information-icon" aria-hidden="true">i</span><span>Objektinfo</span></button>
         </div>
+        <section id="search-menu" class="toolbox-popover" aria-label="Adresssuche" hidden>
+          <div class="toolbox-popover-heading">
+            <h2>Adresse suchen</h2>
+            <button id="close-search-menu" class="toolbox-close" type="button" aria-label="Adresssuche schließen">×</button>
+          </div>
+          <form id="search-form" class="search-form" role="search">
+            <label class="sr-only" for="address-search">Adresse oder Ort suchen</label>
+            <input
+              id="address-search"
+              name="address"
+              type="search"
+              placeholder="Adresse oder Ort in Mainz"
+              autocomplete="street-address"
+              required
+            >
+            <button class="icon-button search-button" type="submit" aria-label="Suchen">
+              <span aria-hidden="true">⌕</span>
+            </button>
+          </form>
+          <p id="search-status" class="inline-status" role="status" aria-live="polite"></p>
+        </section>
         <section id="measure-menu" class="toolbox-popover" aria-label="Messwerkzeuge" hidden>
           <div class="toolbox-popover-heading">
             <h2>Messen</h2>

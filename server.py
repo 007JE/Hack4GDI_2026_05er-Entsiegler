@@ -358,7 +358,31 @@ def geopackage_dop20_tiles():
 
     if not tiles:
         raise ValueError("Das DOP20-GeoPackage enthält keine Bildkacheln.")
-    return {"layer": DOP20_TABLE, "tiles": tiles, "zoomLevels": sorted(zoom_levels)}
+    if len(zoom_levels) != 1:
+        raise ValueError("Das DOP20-GeoPackage muss für das Mosaik genau eine Zoomstufe enthalten.")
+
+    min_column = min(tile["column"] for tile in tiles)
+    max_column = max(tile["column"] for tile in tiles)
+    min_row = min(tile["row"] for tile in tiles)
+    max_row = max(tile["row"] for tile in tiles)
+    tile_width = rows[0][5]
+    tile_height = rows[0][6]
+    pixel_x = rows[0][7]
+    pixel_y = rows[0][8]
+    mosaic_west = min_x + min_column * tile_width * pixel_x
+    mosaic_east = min_x + (max_column + 1) * tile_width * pixel_x
+    mosaic_north = max_y - min_row * tile_height * pixel_y
+    mosaic_south = max_y - (max_row + 1) * tile_height * pixel_y
+    southwest = utm_to_wgs84(mosaic_west, mosaic_south)
+    northeast = utm_to_wgs84(mosaic_east, mosaic_north)
+    return {
+        "layer": DOP20_TABLE,
+        "tiles": tiles,
+        "zoomLevels": sorted(zoom_levels),
+        "tileWidth": tile_width,
+        "tileHeight": tile_height,
+        "bounds": [[southwest[1], southwest[0]], [northeast[1], northeast[0]]],
+    }
 
 
 def geopackage_dop20_tile(zoom, column, row):

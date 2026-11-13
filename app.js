@@ -1,6 +1,4 @@
 const map = L.map("map", { zoomControl: false }).setView([49.9929, 8.2473], 12);
-const areaSelector = document.getElementById("area-selector");
-const areaStatus = document.getElementById("area-status");
 const layerOrderList = document.getElementById("data-layer-order");
 const initialLayerOrderItems = [...layerOrderList.querySelectorAll(".layer-order-item")];
 const dataLayerPaneNames = new Map(initialLayerOrderItems.map(({ dataset }) => [
@@ -21,6 +19,8 @@ const drawingHelp = document.getElementById("drawing-help");
 const measurementResult = document.getElementById("measurement-result");
 const finishButton = document.getElementById("finish-drawing");
 const clearButton = document.getElementById("clear-drawings");
+const searchToggle = document.getElementById("search-toggle");
+const searchMenu = document.getElementById("search-menu");
 const measureToggle = document.getElementById("measure-toggle");
 const measureMenu = document.getElementById("measure-menu");
 const informationToggle = document.getElementById("information-toggle");
@@ -94,7 +94,7 @@ function loadDop20Layer() {
     .then(async (response) => {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `DOP20-GeoPackage antwortet mit HTTP ${response.status}.`);
-      return payload.tiles;
+      return payload;
     })
     .catch((apiError) => {
       console.warn("DOP20-API ist nicht verfügbar; verwende die vorbereiteten GeoPackage-Kacheln:", apiError);
@@ -103,8 +103,7 @@ function loadDop20Layer() {
           if (!response.ok) {
             throw new Error(`statischer DOP20-Kachelindex antwortet mit HTTP ${response.status}.`);
           }
-          const payload = await response.json();
-          return payload.tiles;
+          return response.json();
         })
         .catch((fallbackError) => {
           throw new Error(
@@ -112,35 +111,62 @@ function loadDop20Layer() {
           );
         });
     })
-    .then((tiles) => {
+    .then(({ tiles, bounds, tileWidth = 256, tileHeight = 256 }) => {
       if (!Array.isArray(tiles) || tiles.length === 0) {
         throw new Error("Das DOP20-GeoPackage enthält keine Bildkacheln.");
       }
 
-      let loaded = 0;
-      let failed = 0;
-      const updateStatus = () => {
-        if (loaded + failed !== tiles.length) return;
-        aerialStatus.textContent = `DOP20 Mainz: ${loaded} von ${tiles.length} Bildkacheln geladen${failed ? `, ${failed} fehlgeschlagen` : ""}.`;
-      };
+      const minColumn = Math.min(...tiles.map((tile) => tile.column));
+      const maxColumn = Math.max(...tiles.map((tile) => tile.column));
+      const minRow = Math.min(...tiles.map((tile) => tile.row));
+      const maxRow = Math.max(...tiles.map((tile) => tile.row));
+      const canvas = document.createElement("canvas");
+      canvas.width = (maxColumn - minColumn + 1) * tileWidth;
+      canvas.height = (maxRow - minRow + 1) * tileHeight;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Der Browser kann das DOP20-Luftbild nicht zusammensetzen.");
 
-      tiles.forEach((tile) => {
-        const overlay = L.imageOverlay(tile.url, tile.bounds, {
+      const loadTile = (tile) => new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+          context.drawImage(
+            image,
+            (tile.column - minColumn) * tileWidth,
+            (tile.row - minRow) * tileHeight,
+            tileWidth,
+            tileHeight,
+          );
+          resolve();
+        };
+        image.onerror = () => {
+          reject(new Error(`DOP20-Kachel ${tile.zoom}/${tile.column}/${tile.row} konnte nicht geladen werden.`));
+        };
+        image.src = tile.url;
+      });
+
+      aerialStatus.textContent = `${tiles.length} DOP20-Quellkacheln werden zusammengesetzt …`;
+      return Promise.all(tiles.map(loadTile)).then(() => {
+        const mosaicBounds = bounds || [
+          [
+            Math.min(...tiles.map((tile) => tile.bounds[0][0])),
+            Math.min(...tiles.map((tile) => tile.bounds[0][1])),
+          ],
+          [
+            Math.max(...tiles.map((tile) => tile.bounds[1][0])),
+            Math.max(...tiles.map((tile) => tile.bounds[1][1])),
+          ],
+        ];
+        const overlay = L.imageOverlay(canvas.toDataURL("image/png"), mosaicBounds, {
           pane: dataLayerPaneNames.get("aerial"),
           interactive: false,
           alt: "DOP20-Luftbild Mainz",
         });
-        overlay.on("load", () => {
-          loaded += 1;
-          updateStatus();
-        });
-        overlay.on("error", () => {
-          failed += 1;
-          updateStatus();
+        overlay.once("load", () => {
+          aerialStatus.textContent = `DOP20 Mainz geladen (${tiles.length} Quellkacheln, mosaikiert).`;
         });
         aerialLayer.addLayer(overlay);
+        return overlay;
       });
-      aerialStatus.textContent = `${tiles.length} DOP20-Bildkacheln werden geladen …`;
     })
     .catch((error) => {
       aerialLoadPromise = null;
@@ -151,10 +177,6 @@ function loadDop20Layer() {
   return aerialLoadPromise;
 }
 
-const areaExtents = {
-  germany: [[47.270, 5.866], [55.058, 15.042]],
-  rhinelandPalatinate: [[48.897996, 6.037773], [51.000893, 8.617703]],
-};
 let mainzBoundaryPromise;
 
 function getAreaPadding() {
@@ -184,36 +206,21 @@ function loadMainzBoundary() {
   return mainzBoundaryPromise;
 }
 
-async function setMapArea(area) {
-  areaSelector.disabled = true;
-  areaStatus.textContent = "Gebiet wird geladen …";
+async function focusMainz() {
   areaBoundaryLayer.clearLayers();
 
   try {
-    let bounds;
-    if (area === "mainz") {
-      const boundary = await loadMainzBoundary();
-      areaBoundaryLayer.addData(boundary);
-      bounds = areaBoundaryLayer.getBounds();
-      if (!bounds.isValid()) throw new Error("Der Mainzer Umring enthält keine gültige Kartenausdehnung.");
-    } else {
-      const extent = areaExtents[area];
-      if (!extent) throw new Error("Das ausgewählte Kartengebiet ist unbekannt.");
-      bounds = L.latLngBounds(extent);
-    }
-
+    const boundary = await loadMainzBoundary();
+    areaBoundaryLayer.addData(boundary);
+    const bounds = areaBoundaryLayer.getBounds();
+    if (!bounds.isValid()) throw new Error("Der Mainzer Umring enthält keine gültige Kartenausdehnung.");
     map.fitBounds(bounds, getAreaPadding());
-    areaStatus.textContent = `Kartenausschnitt: ${areaSelector.selectedOptions[0].textContent}.`;
   } catch (error) {
-    console.error("Kartengebiet konnte nicht gesetzt werden:", error);
-    areaStatus.textContent = error.message || "Kartengebiet konnte nicht geladen werden.";
-  } finally {
-    areaSelector.disabled = false;
+    console.error("Mainzer Kartenausschnitt konnte nicht geladen werden:", error);
   }
 }
 
-areaSelector.addEventListener("change", () => setMapArea(areaSelector.value));
-setMapArea(areaSelector.value);
+focusMainz();
 
 function formatDistance(meters) {
   return meters >= 1000
@@ -316,9 +323,12 @@ function setInformationMode(enabled) {
   map.getContainer().classList.toggle("is-identifying", enabled);
   informationStatus.hidden = !enabled;
   informationStatus.textContent = enabled
-    ? "Info-Modus aktiv: Kartenobjekte anklicken."
+    ? "Objektinfo aktiv: Kartenobjekte anklicken. Ohne diesen Modus lässt sich die Karte verschieben."
     : "";
+  if (!enabled) map.closePopup();
   if (enabled) {
+    searchMenu.hidden = true;
+    searchToggle.setAttribute("aria-expanded", "false");
     measureMenu.hidden = true;
     measureToggle.setAttribute("aria-expanded", "false");
     if (drawMode) setDrawMode(null);
@@ -458,7 +468,11 @@ measureToggle.addEventListener("click", () => {
   const isOpen = !measureMenu.hidden;
   measureMenu.hidden = isOpen;
   measureToggle.setAttribute("aria-expanded", String(!isOpen));
-  if (!isOpen) setInformationMode(false);
+  if (!isOpen) {
+    searchMenu.hidden = true;
+    searchToggle.setAttribute("aria-expanded", "false");
+    setInformationMode(false);
+  }
 });
 
 document.getElementById("close-measure-menu").addEventListener("click", () => {
@@ -470,34 +484,51 @@ informationToggle.addEventListener("click", () => {
   setInformationMode(!informationMode);
 });
 
-function activateTab(tab) {
-  panelTabs.forEach((item) => {
-    const active = item === tab;
-    item.setAttribute("aria-selected", String(active));
-    item.tabIndex = active ? 0 : -1;
-  });
-  tabPanels.forEach((panel) => {
-    panel.hidden = panel.id !== tab.getAttribute("aria-controls");
-  });
+searchToggle.addEventListener("click", () => {
+  const isOpen = !searchMenu.hidden;
+  searchMenu.hidden = isOpen;
+  searchToggle.setAttribute("aria-expanded", String(!isOpen));
+  if (!isOpen) {
+    measureMenu.hidden = true;
+    measureToggle.setAttribute("aria-expanded", "false");
+    setInformationMode(false);
+    searchInput.focus();
+  }
+});
+
+document.getElementById("close-search-menu").addEventListener("click", () => {
+  searchMenu.hidden = true;
+  searchToggle.setAttribute("aria-expanded", "false");
+  searchToggle.focus();
+});
+
+function showFeatureInformation(content, event) {
+  if (!informationMode) return;
+  L.popup()
+    .setLatLng(event.latlng)
+    .setContent(content)
+    .openOn(map);
+  informationStatus.textContent = "Objektinformationen geöffnet.";
 }
 
-panelTabs.forEach((tab, index) => {
-  tab.addEventListener("click", () => activateTab(tab));
-  tab.addEventListener("keydown", (event) => {
-    const nextIndex = event.key === "ArrowRight"
-      ? (index + 1) % panelTabs.length
-      : event.key === "ArrowLeft"
-        ? (index + panelTabs.length - 1) % panelTabs.length
-        : event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? panelTabs.length - 1
-            : -1;
-    if (nextIndex < 0) return;
-    event.preventDefault();
-    panelTabs[nextIndex].focus();
-    activateTab(panelTabs[nextIndex]);
+function activateTab(tab) {
+  const isOpen = tab.getAttribute("aria-expanded") === "true";
+  const shouldCollapse = isOpen;
+  const controlPanel = document.querySelector(".control-panel");
+  panelTabs.forEach((item) => {
+    const active = !shouldCollapse && item === tab;
+    item.setAttribute("aria-expanded", String(active));
+    item.classList.toggle("is-active", active);
   });
+  tabPanels.forEach((panel) => {
+    panel.hidden = shouldCollapse || panel.id !== tab.getAttribute("aria-controls");
+  });
+  controlPanel.classList.toggle("is-collapsed", shouldCollapse);
+  controlPanel.querySelector(".map-credit").hidden = shouldCollapse;
+}
+
+panelTabs.forEach((tab) => {
+  tab.addEventListener("click", () => activateTab(tab));
 });
 
 function setLayerVisibility(name, visible) {
@@ -654,19 +685,22 @@ function renderGeoPackageLayer(name, geojson, source = "Kartenausschnitt") {
   const layer = geoPackageLayers.get(name);
   const styles = {
     alkis_flurstuecke: { color: "#b4512d", fillColor: "#e7a372", fillOpacity: 0.04, weight: 1.15 },
-    klima_hitzeinseln: { color: "#a83f35", fillColor: "#e56d56", fillOpacity: 0.27, weight: 1.4 },
     osm_graues_band_parkplaetze: { color: "#545c61", fillColor: "#788087", fillOpacity: 0.36, weight: 1.1 },
     osm_gruenflaechen_groesser_2ha: { color: "#36754e", fillColor: "#69a779", fillOpacity: 0.4, weight: 1.4 },
+  };
+  const heatStyles = {
+    Mittel: { color: "#9b7413", fillColor: "#f2c94c", fillOpacity: 0.48, weight: 1.5 },
+    Hoch: { color: "#a34412", fillColor: "#f07832", fillOpacity: 0.58, weight: 1.6 },
+    Extrem: { color: "#741d2b", fillColor: "#c93645", fillOpacity: 0.7, weight: 1.8 },
   };
   layer.group.clearLayers();
   L.geoJSON(geojson, {
     pane: dataLayerPaneNames.get("gpkg:" + name),
-    style: styles[name],
+    style: (feature) => name === "klima_hitzeinseln"
+      ? heatStyles[feature.properties?.temp_klasse] || heatStyles.Mittel
+      : styles[name],
     onEachFeature: (feature, featureLayer) => {
-      featureLayer.bindPopup(geoPackageFeaturePopup(feature));
-      featureLayer.on("click", () => {
-        if (informationMode) informationStatus.textContent = "Objektinformationen zum Kartenobjekt geöffnet.";
-      });
+      featureLayer.on("click", (event) => showFeatureInformation(geoPackageFeaturePopup(feature), event));
     },
   }).eachLayer((featureLayer) => layer.group.addLayer(featureLayer));
   const count = geojson.features.length.toLocaleString("de-DE");
@@ -887,10 +921,7 @@ function renderCandidates() {
       weight: 2,
     }),
     onEachFeature: (feature, layer) => {
-      layer.bindPopup(makeFeaturePopup(feature));
-      layer.on("click", () => {
-        if (informationMode) informationStatus.textContent = "Informationen zum Entsiegelungskandidaten geöffnet.";
-      });
+      layer.on("click", (event) => showFeatureInformation(makeFeaturePopup(feature), event));
     },
   }).eachLayer((layer) => candidateLayer.addLayer(layer));
 
