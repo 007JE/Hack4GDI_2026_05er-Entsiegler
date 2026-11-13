@@ -1,0 +1,3 @@
+# Luftbilder und Orthofotos können sehr groß sein; nur der Ordner-Platzhalter bleibt versioniert.
+data/luftbilder/*
+!data/luftbilder/.gitkeep
