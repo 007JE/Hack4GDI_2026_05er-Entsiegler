@@ -21,7 +21,7 @@ Danach <http://127.0.0.1:8000> im Browser öffnen. Auf anderen Systemen kann der
 - Adresssuche über die Lupen-Schaltfläche in der Karten-Toolbox, Flächenfilter mit einklappbaren Mehrfachauswahl-Checkboxen unter „Filter“
 - Karten-Toolbox mit Zoom, Info-Modus und Messwerkzeugen für Strecken, Polygone und Rechtecke per Ziehen oder zwei diagonalen Eckpunkten
 - Objektinformationen werden nur im aktiven Info-Modus per Klick eingeblendet; sonst kann die Karte normal verschoben werden
-- Messungen lassen sich ein- und ausblenden sowie gemeinsam löschen
+- Abgeschlossene Strecken und Flächen behalten ihre Beschriftung auf der Karte; kleine Formen erhalten das Label daneben. Messungen lassen sich gemeinsam löschen.
 - Kartenebenen einzeln ein- und ausblendbar
 - Kartenmenü mit „Layer“ und „Filter“ startet eingeklappt; erneuter Klick auf den offenen Menüpunkt klappt ihn zu
 - Layer-Untermenüs starten ebenfalls eingeklappt; die Karte fokussiert automatisch Mainz anhand des Gemeindeumrings

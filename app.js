@@ -61,6 +61,7 @@ const mapLayers = new Map([
 ]);
 let allFeatures = [];
 const measuresById = new Map();
+const candidateBounds = new WeakMap();
 let drawMode = null;
 let informationMode = false;
 let sketch = null;
@@ -340,27 +341,26 @@ function polygonArea(latLngs) {
   return Math.abs((area * earthRadius * earthRadius) / 2);
 }
 
-function describeMeasurement() {
-  if (!sketch) {
-    measurementResult.textContent = "";
-    return;
-  }
-
+function getMeasurementLabel() {
+  if (!sketch) return "";
   if (drawMode === "distance" && sketch.points.length >= 2) {
     const meters = sketch.points.slice(1).reduce(
       (total, point, index) => total + map.distance(sketch.points[index], point),
       0,
     );
-    measurementResult.textContent = `Strecke: ${formatDistance(meters)}`;
+    return `Strecke: ${formatDistance(meters)}`;
   } else if (drawMode === "polygon" && sketch.points.length >= 3) {
-    measurementResult.textContent = `Fläche: ${formatArea(polygonArea(sketch.points))}`;
+    return `Fläche: ${formatArea(polygonArea(sketch.points))}`;
   } else if (drawMode === "rectangle" && rectangleDraft) {
     const corners = rectangleDraft.getBounds();
     const bounds = [corners.getSouthWest(), corners.getSouthEast(), corners.getNorthEast(), corners.getNorthWest()];
-    measurementResult.textContent = `Fläche: ${formatArea(polygonArea(bounds))}`;
-  } else {
-    measurementResult.textContent = "";
+    return `Fläche: ${formatArea(polygonArea(bounds))}`;
   }
+  return "";
+}
+
+function describeMeasurement() {
+  measurementResult.textContent = getMeasurementLabel();
 }
 
 function updateSketch() {
@@ -465,9 +465,26 @@ function completeSketch() {
     return;
   }
 
+  const label = getMeasurementLabel();
   const completedLayers = [];
   sketchLayer.eachLayer((layer) => completedLayers.push(layer));
   sketchLayer.clearLayers();
+  const measurementLayer = completedLayers.find((layer) => typeof layer.getLatLngs === "function");
+  if (measurementLayer && label) {
+    const bounds = measurementLayer.getBounds();
+    const topRight = map.latLngToContainerPoint(bounds.getNorthEast());
+    const bottomLeft = map.latLngToContainerPoint(bounds.getSouthWest());
+    const labelWidth = Math.max(110, label.length * 7);
+    const fitsInside = drawMode !== "distance"
+      && Math.abs(topRight.x - bottomLeft.x) >= labelWidth + 12
+      && Math.abs(topRight.y - bottomLeft.y) >= 30;
+    measurementLayer.bindTooltip(label, {
+      permanent: true,
+      direction: fitsInside ? "center" : "top",
+      offset: [0, -6],
+      className: "measurement-label",
+    });
+  }
   completedLayers.forEach((layer) => drawingLayer.addLayer(layer));
   rectangleDraft = null;
   sketch = null;
@@ -572,9 +589,10 @@ map.on("click", (event) => {
   }
   if (!informationMode) return;
 
-  const target = event.originalEvent && event.originalEvent.target;
-  const clickedFeature = target instanceof Element && target.closest(".leaflet-interactive");
-  if (!clickedFeature) {
+  const feature = findFeatureAtPoint(event.latlng);
+  if (feature) {
+    showFeatureInformation(makeFeaturePopup(feature), event);
+  } else {
     informationStatus.textContent = `Keine Objektinformation an dieser Stelle · ${event.latlng.lat.toFixed(5)}, ${event.latlng.lng.toFixed(5)}`;
   }
 });
@@ -635,6 +653,94 @@ function showFeatureInformation(content, event) {
     .setContent(content)
     .openOn(map);
   informationStatus.textContent = "Objektinformationen geöffnet.";
+}
+
+function pointSegmentDistance(point, start, end) {
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+  const position = lengthSquared
+    ? Math.max(0, Math.min(1, ((point.x - start.x) * deltaX + (point.y - start.y) * deltaY) / lengthSquared))
+    : 0;
+  return point.distanceTo(L.point(
+    start.x + position * deltaX,
+    start.y + position * deltaY,
+  ));
+}
+
+function pointInRing(point, coordinates) {
+  let inside = false;
+  let previous = coordinates.length - 1;
+  for (let index = 0; index < coordinates.length; index += 1) {
+    const currentPoint = map.latLngToLayerPoint(L.latLng(coordinates[index][1], coordinates[index][0]));
+    const previousPoint = map.latLngToLayerPoint(L.latLng(coordinates[previous][1], coordinates[previous][0]));
+    if (pointSegmentDistance(point, previousPoint, currentPoint) <= 6) return true;
+    if ((currentPoint.y > point.y) !== (previousPoint.y > point.y)) {
+      const crossingX = ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y))
+        / (previousPoint.y - currentPoint.y) + currentPoint.x;
+      if (point.x < crossingX) inside = !inside;
+    }
+    previous = index;
+  }
+  return inside;
+}
+
+function lineContainsPoint(point, coordinates) {
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const start = map.latLngToLayerPoint(L.latLng(coordinates[index - 1][1], coordinates[index - 1][0]));
+    const end = map.latLngToLayerPoint(L.latLng(coordinates[index][1], coordinates[index][0]));
+    if (pointSegmentDistance(point, start, end) <= 8) return true;
+  }
+  return false;
+}
+
+function geometryContainsPoint(geometry, point) {
+  if (!geometry) return false;
+  const containsLine = (lines) => lines.some((coordinates) => lineContainsPoint(point, coordinates));
+  switch (geometry.type) {
+    case "Point": {
+      const position = map.latLngToLayerPoint(L.latLng(geometry.coordinates[1], geometry.coordinates[0]));
+      return point.distanceTo(position) <= 8;
+    }
+    case "MultiPoint":
+      return geometry.coordinates.some((coordinates) => {
+        const position = map.latLngToLayerPoint(L.latLng(coordinates[1], coordinates[0]));
+        return point.distanceTo(position) <= 8;
+      });
+    case "LineString":
+      return lineContainsPoint(point, geometry.coordinates);
+    case "MultiLineString":
+      return containsLine(geometry.coordinates);
+    case "Polygon":
+      return pointInRing(point, geometry.coordinates[0])
+        && !geometry.coordinates.slice(1).some((ring) => pointInRing(point, ring));
+    case "MultiPolygon":
+      return geometry.coordinates.some((polygon) => (
+        pointInRing(point, polygon[0])
+        && !polygon.slice(1).some((ring) => pointInRing(point, ring))
+      ));
+    case "GeometryCollection":
+      return geometry.geometries.some((item) => geometryContainsPoint(item, point));
+    default:
+      return false;
+  }
+}
+
+function findFeatureAtPoint(latLng) {
+  if (!map.hasLayer(candidateLayer)) return null;
+  const point = map.latLngToLayerPoint(latLng);
+  const layers = candidateLayer.getLayers();
+  for (let index = layers.length - 1; index >= 0; index -= 1) {
+    const layer = layers[index];
+    if (
+      layer.feature
+      && candidateBounds.get(layer)?.contains(latLng)
+      && geometryContainsPoint(layer.feature.geometry, point)
+    ) {
+      return layer.feature;
+    }
+  }
+  return null;
 }
 
 function activateTab(tab) {
@@ -916,10 +1022,10 @@ function renderCandidates() {
         weight: 2,
       });
     },
-    onEachFeature: (feature, layer) => {
-      layer.on("click", (event) => showFeatureInformation(makeFeaturePopup(feature), event));
-    },
-  }).eachLayer((layer) => candidateLayer.addLayer(layer));
+  }).eachLayer((layer) => {
+    candidateLayer.addLayer(layer);
+    if (typeof layer.getBounds === "function") candidateBounds.set(layer, layer.getBounds());
+  });
 
   featureCount.textContent = String(visible.length);
   dataStatus.textContent = allFeatures.length

@@ -910,6 +910,23 @@ p {
   background: var(--orange);
 }
 
+.leaflet-tooltip.measurement-label {
+  padding: 4px 7px;
+  border: 1px solid #174f3e;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 5px rgba(20, 45, 34, 0.28);
+  color: #174f3e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.leaflet-tooltip-top.measurement-label::before {
+  border-top-color: #174f3e;
+}
+
 .leaflet-control-attribution {
   font-size: 10px !important;
 }
