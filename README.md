@@ -20,13 +20,13 @@ Danach <http://127.0.0.1:8000> im Browser öffnen. Auf anderen Systemen kann der
 - Gruppierte Layer für Hintergrundkarten und GeoJSON-Exporte
 - Layer-Überlagerung mit Drag-and-drop-Reihenfolge (mit Pfeiltasten-Alternative); die Sichtbarkeit wird mit den vorhandenen Layer-Schaltern gesteuert
 - Adresssuche über die Lupen-Schaltfläche in der Karten-Toolbox, Flächenfilter unter „Filter“
-- Karten-Toolbox mit Zoom, Info-Modus und Messwerkzeugen für Strecken, Polygone und Rechtecke
+- Karten-Toolbox mit Zoom, Info-Modus und Messwerkzeugen für Strecken, Polygone und Rechtecke per Ziehen oder zwei diagonalen Eckpunkten
 - Objektinformationen werden nur im aktiven Info-Modus per Klick eingeblendet; sonst kann die Karte normal verschoben werden
 - Messungen lassen sich ein- und ausblenden sowie gemeinsam löschen
 - Kartenebenen einzeln ein- und ausblendbar
 - Kartenmenü mit „Layer“ und „Filter“ startet eingeklappt; erneuter Klick auf den offenen Menüpunkt klappt ihn zu
 - Layer-Untermenüs starten ebenfalls eingeklappt; die Karte fokussiert automatisch Mainz anhand des Gemeindeumrings
-- Lokales DOP20-Luftbild aus `data/geopackage/dop20_mainz.gpkg`; der Python-Server stellt die GeoPackage-Kacheln für Leaflet bereit
+- DOP20-Originalkacheln werden einzeln und ohne PNG-Mosaik direkt aus `data/geopackage/dop20_mainz.gpkg` über den Python-Server in Leaflet angezeigt
 - gestaltete Info-Karte mit Bewertungsstufe (1–5), entsiegelbarer Fläche und Maßnahmenvorschlägen; fehlende Werte werden als nicht hinterlegt markiert
 - dauerhaft laufender Lizenzbanner am unteren Bildschirmrand, gespeist aus `scoring/lizenz.json`; die Quellen und bekannten Lizenzbedingungen sind verlinkt
 - Adresssuche über den Geocoding-Dienst Nominatim
@@ -34,9 +34,9 @@ Danach <http://127.0.0.1:8000> im Browser öffnen. Auf anderen Systemen kann der
 - GeoJSON-Flächen nach fünf Prioritätsstufen und Maßnahmen aus dem Maßnahmenkatalog filtern
 - Responsive Bedienoberfläche mit Projektlogo
 
-Leaflet, Kartenkacheln und Adresssuche werden online geladen. Der lokale Python-Server liest die DOP20-Rasterkacheln aus `data/geopackage/dop20_mainz.gpkg` und stellt sie über eine GeoPackage-API bereit. Im Browser werden sie zu einem einzigen Kartenbild zusammengesetzt, damit keine sichtbaren Trennlinien zwischen den Quellkacheln entstehen. Als Fallback liegen die exportierten Bildkacheln und ihr Index unter `data/geopackage/dop20_tiles/` und `data/geopackage/dop20_tiles.json`; damit funktioniert das Luftbild auch auf statischen Servern ohne API (z. B. VS Code Live Server auf Port 5500).
+Leaflet, Kartenkacheln und Adresssuche werden online geladen. Der lokale Python-Server liest die DOP20-Rasterkacheln aus `data/geopackage/dop20_mainz.gpkg` und stellt sie unverändert einzeln über eine GeoPackage-API bereit. Die Kartenansicht wählt anhand der Kartenauflösung die passende im GeoPackage vorhandene Zoomstufe und lädt nur Kacheln im sichtbaren Ausschnitt. Als Fallback liegen die exportierten Einzelkacheln und ihr Index unter `data/geopackage/dop20_tiles/` und `data/geopackage/dop20_tiles.json`; sie werden ebenfalls einzeln angezeigt. Das aktuell eingecheckte GeoPackage enthält allerdings nur 41 Kacheln auf Stufe 3 mit etwa 7,3 × 7,8 m pro Pixel; höher aufgelöste Quelldaten sind darin nicht enthalten.
 
-Für die spätere Flächenintegration dient `data/geojson/entsiegelungskandidaten.geojson`. Der Filter liest `priority` (Stufe 1–5) und vorgeschlagene Maßnahmen aus den GeoJSON-`properties`; diese Felder sind optional. Die Stufen reichen von „Entsiegelungspotenzial sehr gering“ (1) bis „Entsiegelungspotenzial sehr hoch“ (5). Die auswählbaren Maßnahmen werden aus `scoring/massnahmenkatalog.json` geladen. Ohne Flächendaten bleibt die Karte bedienbar und zeigt einen entsprechenden Hinweis.
+Die Webkarte lädt die berechneten Flächen aus `data/geojson/ergebnis.geojson`. Der Filter liest die Priorität aus `prioritaet` (Stufe 1–5) und die Maßnahme aus `massnahme`; die Objektinfo zeigt zusätzlich Fläche, Score und Begründung aus `flaeche_m2`, `score_final` und `massnahme_berg`. Die Stufen reichen von „Entsiegelungspotenzial sehr gering“ (1) bis „Entsiegelungspotenzial sehr hoch“ (5). Die auswählbaren Maßnahmen werden ohne Browser-Cache aus `scoring/massnahmenkatalog.json` geladen, damit Aktualisierungen der lokalen Datei direkt übernommen werden.
 
 ## Projektdateien
 

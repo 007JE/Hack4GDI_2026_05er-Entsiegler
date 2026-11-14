@@ -34,5 +34,10 @@
     "layer": "niederschlagskarte2023_Verschneidung",
     "source": "https://wasserportal.rlp-umwelt.de/kartendienste",
     "license": "CC-BY-4.0"
+  },
+  "Starterkit_Mainz": {
+    "layer": "Starterkit_Mainz",
+    "source": "https://github.com/sosimple83/fossgis-student-warmup?tab=MIT-1-ov-file",
+    "license": "(c) 2026 Emmanuel Tobey (Tobey GIS Consulting)"
   }
 }

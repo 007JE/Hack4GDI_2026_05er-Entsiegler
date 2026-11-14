@@ -60,13 +60,20 @@ let informationMode = false;
 let sketch = null;
 let rectangleStart = null;
 let rectangleDraft = null;
+let ignoreNextRectangleClick = false;
 let lastGeocodeRequestAt = 0;
 let isSearching = false;
 let aerialLoadPromise = null;
+let aerialTiles = [];
+let aerialZoomLevels = [];
+let aerialPixelSizes = {};
+let aerialTileKey = "";
+let aerialRenderGeneration = 0;
 
 basemapLayer.addTo(map);
 aerialLayer.addTo(map);
 loadDop20Layer();
+map.on("moveend", refreshDop20Layer);
 
 L.DomEvent.disableClickPropagation(mapToolbox);
 L.DomEvent.disableScrollPropagation(mapToolbox);
@@ -197,135 +204,24 @@ function loadDop20Layer() {
           );
         });
     })
-    .then(({ tiles, tileWidth = 256, tileHeight = 256, sourceOrigin, pixelSize, webMercatorBounds }) => {
-      if (!Array.isArray(tiles) || tiles.length === 0 || !sourceOrigin || !pixelSize || !webMercatorBounds) {
+    .then((payload) => {
+        const { tiles } = payload;
+        if (!Array.isArray(tiles) || tiles.length === 0) {
+          throw new Error("Das DOP20-GeoPackage enthält keine Bildkacheln.");
+        }
+        const pixelSizes = payload.pixelSizes && typeof payload.pixelSizes === "object"
+          ? payload.pixelSizes
+          : {};
+        const zoomLevels = payload.zoomLevels || [...new Set(tiles.map((tile) => tile.zoom))].sort((a, b) => a - b);
+        if (!Array.isArray(zoomLevels) || zoomLevels.length === 0) {
         throw new Error("Das DOP20-GeoPackage enthält keine Bildkacheln.");
       }
 
-      const minColumn = Math.min(...tiles.map((tile) => tile.column));
-      const maxColumn = Math.max(...tiles.map((tile) => tile.column));
-      const minRow = Math.min(...tiles.map((tile) => tile.row));
-      const maxRow = Math.max(...tiles.map((tile) => tile.row));
-      const canvas = document.createElement("canvas");
-      canvas.width = (maxColumn - minColumn + 1) * tileWidth;
-      canvas.height = (maxRow - minRow + 1) * tileHeight;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Der Browser kann das DOP20-Luftbild nicht zusammensetzen.");
-
-      const loadTile = (tile) => new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => {
-          context.drawImage(
-            image,
-            (tile.column - minColumn) * tileWidth,
-            (tile.row - minRow) * tileHeight,
-            tileWidth,
-            tileHeight,
-          );
-          resolve();
-        };
-        image.onerror = () => {
-          reject(new Error(`DOP20-Kachel ${tile.zoom}/${tile.column}/${tile.row} konnte nicht geladen werden.`));
-        };
-        image.src = tile.url;
-      });
-
-      aerialStatus.textContent = `${tiles.length} DOP20-Quellkacheln werden zusammengesetzt …`;
-      return Promise.all(tiles.map(loadTile)).then(() => {
-        const [minX, minY] = webMercatorBounds[0];
-        const [maxX, maxY] = webMercatorBounds[1];
-        const outputCanvas = document.createElement("canvas");
-        outputCanvas.width = canvas.width;
-        outputCanvas.height = Math.round(canvas.width * (maxY - minY) / (maxX - minX));
-        const output = outputCanvas.getContext("2d");
-        if (!output) throw new Error("Der Browser kann das DOP20-Luftbild nicht georeferenzieren.");
-
-        const projectSourcePoint = (sourceX, sourceY) => {
-          const easting = sourceOrigin[0] + sourceX * pixelSize[0];
-          const northing = sourceOrigin[1] - sourceY * pixelSize[1];
-          const [longitude, latitude] = utmToWgs84(easting, northing);
-          const radians = Math.PI / 180;
-          const radius = 6378137;
-          return [
-            ((radius * longitude * radians - minX) / (maxX - minX)) * outputCanvas.width,
-            ((maxY - radius * Math.log(Math.tan(Math.PI / 4 + latitude * radians / 2))) / (maxY - minY))
-              * outputCanvas.height,
-          ];
-        };
-
-        const sourceTriangle = (sourcePoints, targetPoints) => {
-          const [p0, p1, p2] = sourcePoints;
-          const [q0, q1, q2] = targetPoints;
-          const determinant = p0[0] * (p1[1] - p2[1])
-            + p1[0] * (p2[1] - p0[1])
-            + p2[0] * (p0[1] - p1[1]);
-          if (!determinant) return;
-          const transform = (a0, a1, a2) => [
-            (a0 * (p1[1] - p2[1]) + a1 * (p2[1] - p0[1]) + a2 * (p0[1] - p1[1])) / determinant,
-            (a0 * (p2[0] - p1[0]) + a1 * (p0[0] - p2[0]) + a2 * (p1[0] - p0[0])) / determinant,
-            (a0 * (p1[0] * p2[1] - p2[0] * p1[1])
-              + a1 * (p2[0] * p0[1] - p0[0] * p2[1])
-              + a2 * (p0[0] * p1[1] - p1[0] * p0[1])) / determinant,
-          ];
-          const [a, c, e] = transform(q0[0], q1[0], q2[0]);
-          const [b, d, f] = transform(q0[1], q1[1], q2[1]);
-
-          output.save();
-          output.beginPath();
-          output.moveTo(q0[0], q0[1]);
-          output.lineTo(q1[0], q1[1]);
-          output.lineTo(q2[0], q2[1]);
-          output.closePath();
-          output.clip();
-          output.setTransform(a, b, c, d, e, f);
-          output.drawImage(canvas, 0, 0);
-          output.restore();
-        };
-
-        const meshSegments = 8;
-        const sourceWidth = canvas.width / (maxColumn - minColumn + 1);
-        const sourceHeight = canvas.height / (maxRow - minRow + 1);
-        const cellWidth = sourceWidth / meshSegments;
-        const cellHeight = sourceHeight / meshSegments;
-        tiles.forEach((tile) => {
-          const tileX = (tile.column - minColumn) * sourceWidth;
-          const tileY = (tile.row - minRow) * sourceHeight;
-          for (let row = 0; row < meshSegments; row += 1) {
-            for (let column = 0; column < meshSegments; column += 1) {
-              const x = tileX + column * cellWidth;
-              const y = tileY + row * cellHeight;
-              const source = [
-                [x, y],
-                [x + cellWidth, y],
-                [x + cellWidth, y + cellHeight],
-                [x, y + cellHeight],
-              ];
-              const target = source.map(([sourceX, sourceY]) => projectSourcePoint(sourceX, sourceY));
-              sourceTriangle([source[0], source[1], source[2]], [target[0], target[1], target[2]]);
-              sourceTriangle([source[0], source[2], source[3]], [target[0], target[2], target[3]]);
-            }
-          }
-        });
-
-        const radius = 6378137;
-        const mercatorToLatitude = (northing) => (
-          2 * Math.atan(Math.exp(northing / radius)) - Math.PI / 2
-        ) * 180 / Math.PI;
-        const overlayBounds = [
-          [mercatorToLatitude(minY), minX / radius * 180 / Math.PI],
-          [mercatorToLatitude(maxY), maxX / radius * 180 / Math.PI],
-        ];
-        const overlay = L.imageOverlay(outputCanvas.toDataURL("image/png"), overlayBounds, {
-          pane: dataLayerPaneNames.get("aerial"),
-          interactive: false,
-          alt: "DOP20-Luftbild Mainz",
-        });
-        overlay.once("load", () => {
-          aerialStatus.textContent = `DOP20 Mainz geladen (${tiles.length} Quellkacheln, reprojiziert).`;
-        });
-        aerialLayer.addLayer(overlay);
-        return overlay;
-      });
+      aerialTiles = tiles;
+      aerialZoomLevels = [...zoomLevels].sort((a, b) => a - b);
+      aerialPixelSizes = pixelSizes;
+      refreshDop20Layer();
+      return tiles.length;
     })
     .catch((error) => {
       aerialLoadPromise = null;
@@ -336,47 +232,53 @@ function loadDop20Layer() {
   return aerialLoadPromise;
 }
 
-function utmToWgs84(easting, northing) {
-  const flattening = 1 / 298.257223563;
-  const eccentricitySquared = flattening * (2 - flattening);
-  const secondEccentricitySquared = eccentricitySquared / (1 - eccentricitySquared);
-  const scale = 0.9996;
-  const semiMajorAxis = 6378137;
-  const eccentricityPrime = (1 - Math.sqrt(1 - eccentricitySquared))
-    / (1 + Math.sqrt(1 - eccentricitySquared));
-  const meridian = northing / scale;
-  const mu = meridian / (
-    semiMajorAxis * (1 - eccentricitySquared / 4 - 3 * eccentricitySquared ** 2 / 64
-      - 5 * eccentricitySquared ** 3 / 256)
-  );
-  const footpoint = mu
-    + (3 * eccentricityPrime / 2 - 27 * eccentricityPrime ** 3 / 32) * Math.sin(2 * mu)
-    + (21 * eccentricityPrime ** 2 / 16 - 55 * eccentricityPrime ** 4 / 32) * Math.sin(4 * mu)
-    + (151 * eccentricityPrime ** 3 / 96) * Math.sin(6 * mu)
-    + (1097 * eccentricityPrime ** 4 / 512) * Math.sin(8 * mu);
-  const sinFootpoint = Math.sin(footpoint);
-  const cosFootpoint = Math.cos(footpoint);
-  const tangent = Math.tan(footpoint);
-  const c1 = secondEccentricitySquared * cosFootpoint ** 2;
-  const t1 = tangent ** 2;
-  const n1 = semiMajorAxis / Math.sqrt(1 - eccentricitySquared * sinFootpoint ** 2);
-  const r1 = semiMajorAxis * (1 - eccentricitySquared)
-    / (1 - eccentricitySquared * sinFootpoint ** 2) ** 1.5;
-  const d = (easting - 500000) / (n1 * scale);
-  const d2 = d ** 2;
-  const latitude = footpoint - (n1 * tangent / r1) * (
-    d2 / 2
-    - (5 + 3 * t1 + 10 * c1 - 4 * c1 ** 2 - 9 * secondEccentricitySquared) * d2 ** 2 / 24
-    + (61 + 90 * t1 + 298 * c1 + 45 * t1 ** 2 - 252 * secondEccentricitySquared - 3 * c1 ** 2)
-      * d2 ** 3 / 720
-  );
-  const longitude = Math.PI / 20 + (
-    d
-    - (1 + 2 * t1 + c1) * d ** 3 / 6
-    + (5 - 2 * c1 + 28 * t1 - 3 * c1 ** 2 + 8 * secondEccentricitySquared + 24 * t1 ** 2)
-      * d ** 5 / 120
-  ) / cosFootpoint;
-  return [longitude * 180 / Math.PI, latitude * 180 / Math.PI];
+function refreshDop20Layer() {
+  if (!aerialTiles.length || !aerialZoomLevels.length) return;
+
+  const centerLatitude = map.getCenter().lat * Math.PI / 180;
+  const mapMetersPerPixel = 156543.03392804097 * Math.cos(centerLatitude) / (2 ** map.getZoom());
+  const selectedZoom = aerialZoomLevels.find((zoom) => {
+    const pixelSize = aerialPixelSizes[zoom];
+    return pixelSize && Math.sqrt(pixelSize[0] * pixelSize[1]) <= mapMetersPerPixel;
+  }) ?? aerialZoomLevels[aerialZoomLevels.length - 1];
+  const mapBounds = map.getBounds();
+  const visibleTiles = aerialTiles.filter((tile) => {
+    if (tile.zoom !== selectedZoom || !Array.isArray(tile.bounds)) return false;
+    const [[south, west], [north, east]] = tile.bounds;
+    return north >= mapBounds.getSouth()
+      && south <= mapBounds.getNorth()
+      && east >= mapBounds.getWest()
+      && west <= mapBounds.getEast();
+  });
+  const tileKey = `${selectedZoom}:${visibleTiles.map(({ column, row }) => `${column}/${row}`).join(",")}`;
+  if (tileKey === aerialTileKey) return;
+
+  aerialTileKey = tileKey;
+  const generation = ++aerialRenderGeneration;
+  aerialLayer.clearLayers();
+  if (!visibleTiles.length) {
+    aerialStatus.textContent = "Keine DOP20-Kacheln im sichtbaren Kartenausschnitt.";
+    return;
+  }
+
+  visibleTiles.forEach((tile) => {
+    const overlay = L.imageOverlay(tile.url, tile.bounds, {
+      pane: dataLayerPaneNames.get("aerial"),
+      interactive: false,
+      alt: "DOP20-Luftbild Mainz",
+    });
+    overlay.once("error", () => {
+      if (generation === aerialRenderGeneration) {
+        aerialStatus.textContent = `DOP20-Originalkachel ${tile.zoom}/${tile.column}/${tile.row} konnte nicht geladen werden.`;
+      }
+    });
+    aerialLayer.addLayer(overlay);
+  });
+  const pixelSize = aerialPixelSizes[selectedZoom];
+  const resolution = pixelSize
+    ? ` · ${pixelSize[0].toLocaleString("de-DE", { maximumFractionDigits: 2 })} × ${pixelSize[1].toLocaleString("de-DE", { maximumFractionDigits: 2 })} m/Pixel`
+    : "";
+  aerialStatus.textContent = `DOP20 aus dem GeoPackage: Stufe ${selectedZoom}${resolution}, ${visibleTiles.length} Originalkacheln.`;
 }
 
 let mainzBoundaryPromise;
@@ -549,7 +451,7 @@ function setDrawMode(mode) {
     drawingHelp.textContent = {
       distance: "Klicke mehrere Punkte; die Strecke wird laufend berechnet.",
       polygon: "Klicke mindestens drei Eckpunkte und beende das Polygon.",
-      rectangle: "Ziehe mit gedrückter Maustaste ein Rechteck auf.",
+      rectangle: "Ziehe ein Rechteck auf oder klicke die zwei diagonal gegenüberliegenden Eckpunkte.",
     }[drawMode];
     map.doubleClickZoom.disable();
   } else {
@@ -592,15 +494,34 @@ function completeSketch() {
 function cancelRectangleDrag() {
   if (map.dragging && !map.dragging.enabled()) map.dragging.enable();
   rectangleStart = null;
+  ignoreNextRectangleClick = false;
   map.off("mousemove touchmove", updateRectangle);
   map.off("mouseup touchend", finishRectangleDrag);
 }
 
 function getEventLatLng(event) {
   if (event.latlng) return event.latlng;
-  const touch = event.originalEvent.touches && event.originalEvent.touches[0];
+  const touch = event.originalEvent.touches && event.originalEvent.touches[0]
+    || event.originalEvent.changedTouches && event.originalEvent.changedTouches[0];
   if (!touch) return null;
   return map.mouseEventToLatLng(touch);
+}
+
+function createRectangleDraft(latLng) {
+  rectangleStart = latLng;
+  rectangleDraft = L.rectangle([latLng, latLng], {
+    color: "#e47736",
+    fillColor: "#f5a66f",
+    fillOpacity: 0.22,
+    weight: 3,
+    dashArray: "6 5",
+  }).addTo(sketchLayer);
+}
+
+function rectangleHasArea() {
+  if (!rectangleDraft) return false;
+  const bounds = rectangleDraft.getBounds();
+  return !bounds.getNorthEast().equals(bounds.getSouthWest());
 }
 
 function startRectangleDrag(event) {
@@ -609,14 +530,11 @@ function startRectangleDrag(event) {
   if (!latLng) return;
 
   L.DomEvent.stopPropagation(event.originalEvent);
-  rectangleStart = latLng;
-  rectangleDraft = L.rectangle([rectangleStart, rectangleStart], {
-    color: "#e47736",
-    fillColor: "#f5a66f",
-    fillOpacity: 0.22,
-    weight: 3,
-    dashArray: "6 5",
-  }).addTo(sketchLayer);
+  if (rectangleStart) {
+    updateRectangle({ latlng: latLng });
+  } else {
+    createRectangleDraft(latLng);
+  }
   map.dragging.disable();
   map.on("mousemove touchmove", updateRectangle);
   map.on("mouseup touchend", finishRectangleDrag);
@@ -631,16 +549,36 @@ function updateRectangle(event) {
 
 function finishRectangleDrag() {
   if (!rectangleStart) return;
-  cancelRectangleDrag();
-  if (!rectangleDraft || rectangleDraft.getBounds().getNorthEast().equals(rectangleDraft.getBounds().getSouthWest())) {
-    if (rectangleDraft) sketchLayer.removeLayer(rectangleDraft);
-    rectangleDraft = null;
+  map.off("mouseup touchend", finishRectangleDrag);
+  if (!rectangleHasArea()) {
+    ignoreNextRectangleClick = true;
+    drawingHelp.textContent = "Startpunkt gesetzt. Ziehe das Rechteck auf oder klicke den diagonal gegenüberliegenden Eckpunkt.";
     return;
   }
   completeSketch();
 }
 
 map.on("click", (event) => {
+  if (drawMode === "rectangle") {
+    if (ignoreNextRectangleClick) {
+      ignoreNextRectangleClick = false;
+      return;
+    }
+    if (!rectangleStart) {
+      createRectangleDraft(event.latlng);
+      map.dragging.disable();
+      map.on("mousemove touchmove", updateRectangle);
+      drawingHelp.textContent = "Startpunkt gesetzt. Klicke den diagonal gegenüberliegenden Eckpunkt.";
+      return;
+    }
+    updateRectangle(event);
+    if (rectangleHasArea()) {
+      completeSketch();
+    } else {
+      drawingHelp.textContent = "Bitte den diagonal gegenüberliegenden Eckpunkt wählen.";
+    }
+    return;
+  }
   if (drawMode === "distance" || drawMode === "polygon") {
     sketch.points.push(event.latlng);
     updateSketch();
@@ -884,12 +822,16 @@ function formatInfoArea(value) {
 }
 
 function formatMeasures(value) {
-  if (Array.isArray(value)) {
-    const measures = value.map(String).filter(Boolean);
-    return measures.length ? measures.join(", ") : null;
-  }
-  if (typeof value === "string") return value.trim() || null;
-  return null;
+  const values = Array.isArray(value)
+    ? value.map(String)
+    : typeof value === "string"
+      ? value.split(/[,;|]/)
+      : [];
+  const labels = values
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => measuresById.get(item)?.name || item);
+  return labels.length ? labels.join(", ") : null;
 }
 
 function makeMeasureInfoPopup(feature) {
@@ -897,12 +839,19 @@ function makeMeasureInfoPopup(feature) {
   const content = L.DomUtil.create("article", "feature-popup feature-info-card");
   const heading = L.DomUtil.create("header", "feature-info-heading", content);
   const title = L.DomUtil.create("h2", "", heading);
-  title.textContent = properties.name || properties.titel || "Entsiegelungsfläche";
+  title.textContent = properties.name || properties.titel || properties.nutzung || "Entsiegelungsfläche";
   const subtitle = L.DomUtil.create("p", "feature-info-subtitle", heading);
   subtitle.textContent = "Entsiegelungspotenzial";
 
   const metrics = L.DomUtil.create("div", "feature-metrics", content);
   const explicitRating = firstProperty(properties, [
+    "prioritaet_5",
+    "priorität_5",
+    "priority",
+    "prioritaet",
+    "priorität",
+    "prioritätsstufe",
+    "prioritaetsstufe",
     "bewertungsstufe",
     "bewertungstufe",
     "bewertungs_stufe",
@@ -910,7 +859,8 @@ function makeMeasureInfoPopup(feature) {
   ]);
   const score = Number(properties.score);
   const rawRating = explicitRating ?? (Number.isInteger(score) && score >= 1 && score <= 5 ? score : null);
-  const rating = Number(rawRating);
+  const parsedRating = Number(rawRating);
+  const rating = Number.isInteger(parsedRating) ? parsedRating : Number(getPriorityLevel(properties));
   const validRating = Number.isInteger(rating) && rating >= 1 && rating <= 5;
   const ratingValue = validRating ? `${rating} / 5` : "Noch nicht bewertet";
   const ratingNote = validRating
@@ -919,13 +869,14 @@ function makeMeasureInfoPopup(feature) {
   addInfoMetric(metrics, "Bewertungsstufe", ratingValue, ratingNote, validRating ? `rating-${rating}` : "is-unavailable");
 
   const rawArea = firstProperty(properties, [
+    "flaeche_m2",
+    "flaeche_qm",
     "entsiegelbare_flaeche_qm",
     "entsiegelbare_flaeche",
     "entsiegelungsflaeche_qm",
     "entsiegelungsflaeche",
     "flaeche_entsiegelung_qm",
     "flaeche_entsiegelung",
-    "flaeche_qm",
   ]);
   const area = rawArea === null ? null : formatInfoArea(rawArea);
   addInfoMetric(
@@ -939,6 +890,7 @@ function makeMeasureInfoPopup(feature) {
   );
 
   const rawMeasures = firstProperty(properties, [
+    "massnahme_id",
     "vorgeschlagene_massnahmen",
     "vorgeschlagene_massnahme",
     "massnahmen_vorschlag",
@@ -952,12 +904,21 @@ function makeMeasureInfoPopup(feature) {
     "Vorgeschlagene Maßnahmen",
     measures || "Noch nicht zugeordnet",
     measures
-      ? "Vorschlag für diese Fläche"
+      ? firstProperty(properties, ["massnahme_begr", "massnahme_berg"]) || "Vorschlag für diese Fläche"
       : "Keine Maßnahmen im Datensatz hinterlegt",
     measures ? "" : "is-unavailable",
   );
 
-  const metadataValues = [["Score", properties.score], ["Priorität", properties.priority]];
+  const scoreMetadata = firstProperty(properties, ["score_final", "score"]);
+  const priority = firstProperty(properties, [
+    "prioritaet_5",
+    "priorität_5",
+    "priority",
+    "prioritaet",
+    "prioritätsstufe",
+    "prioritaetsstufe",
+  ]);
+  const metadataValues = [["Score", scoreMetadata], ["Priorität", priority]];
   const metadata = metadataValues.filter(([, value]) => value !== undefined && value !== null && value !== "");
   if (metadata.length) {
     const section = L.DomUtil.create("section", "feature-info-metadata", content);
@@ -1014,6 +975,8 @@ function getPriorityLevel(properties) {
   const value = firstProperty(properties, [
     "priority",
     "prioritaet",
+    "prioritaet_5",
+    "priorität_5",
     "prioritätsstufe",
     "prioritaetsstufe",
     "bewertungsstufe",
@@ -1062,7 +1025,7 @@ function configureFilters() {
 priorityFilter.addEventListener("change", renderCandidates);
 measureFilter.addEventListener("change", renderCandidates);
 
-fetch("scoring/massnahmenkatalog.json")
+fetch("scoring/massnahmenkatalog.json", { cache: "no-store" })
   .then((response) => {
     if (!response.ok) throw new Error(`Maßnahmenkatalog konnte nicht geladen werden (${response.status}).`);
     return response.json();
@@ -1090,7 +1053,7 @@ fetch("scoring/massnahmenkatalog.json")
     measureFilterStatus.textContent = error.message || "Maßnahmenfilter konnte nicht geladen werden.";
   });
 
-fetch("data/geojson/entsiegelungskandidaten.geojson")
+fetch("data/geojson/ergebnis.geojson", { cache: "no-store" })
   .then((response) => {
     if (!response.ok) {
       throw new Error(`GeoJSON konnte nicht geladen werden (${response.status}).`);

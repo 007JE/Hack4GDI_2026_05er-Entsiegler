@@ -1,11 +1,24 @@
 {
-  "version": 1,
-  "status": "Vorschlag zur fachlichen Abstimmung; kein fertiger GIS-Layer",
+  "version": 2,
+  "status": "Mit der bestehenden QGIS-Maßnahmenzuordnung synchronisierter Prototypkatalog; keine geprüfte Umsetzungsplanung",
+  "assignment": {
+    "type": "single_primary_measure",
+    "qgisField": "massnahme_id",
+    "qgisReasonField": "massnahme_begr",
+    "evaluation": "first_matching_rule",
+    "order": [
+      "gruener_gully",
+      "pocket_park",
+      "schwammstadt",
+      "versickerungsmulde",
+      "gruenflaeche_mit_baeumen",
+      "regengarten",
+      "bluehstreifen",
+      "wasserdurchlaessiger_belag"
+    ],
+    "note": "Grüner Gully wurde in QGIS nachträglich als vorrangige Überschreibungsregel ergänzt; daher steht er in der endgültigen Reihenfolge an erster Stelle. Das Feld score_final/prioritaet_5 bestimmt die Priorität, nicht direkt den Maßnahmentyp."
+  },
   "categories": [
-    {
-      "id": "gebaeudebegruenung",
-      "name": "Gebäudebegrünung"
-    },
     {
       "id": "durchlaessige_belaege",
       "name": "Durchlässige Beläge"
@@ -21,70 +34,25 @@
   ],
   "measures": [
     {
-      "id": "dachbegruenung",
-      "name": "Flachdachbegrünung",
-      "category": "gebaeudebegruenung",
-      "summary": "Begrünung geeigneter Flachdächer als zusätzliche Vegetations- und Regenrückhaltefläche.",
-      "proposeWhen": [
-        "Ein Gebäude mit Flachdach liegt auf oder an einer geeigneten Fläche.",
-        "Dachaufbau, Statik, Eigentum und Nutzung lassen eine Begrünung grundsätzlich zu."
-      ],
-      "source": "https://topgreen-gruendach.de/flachdach-begruenen"
-    },
-    {
-      "id": "fassadenbegruenung",
-      "name": "Vertikale Begrünung / Fassadenbegrünung",
-      "category": "gebaeudebegruenung",
-      "summary": "Begrünung geeigneter Fassaden oder Innenhöfe, wenn am Boden wenig Platz verfügbar ist.",
-      "proposeWhen": [
-        "Geeignete Fassaden oder Innenhofwände sind vorhanden.",
-        "Am Boden ist wenig Platz für zusätzliche Begrünung verfügbar."
-      ],
-      "source": "https://www.fassadengruen.de/vertikalbegruenung.html"
-    },
-    {
-      "id": "wasserdurchlaessiger_belag",
-      "name": "Wasserdurchlässige Bodenbeläge",
-      "category": "durchlaessige_belaege",
-      "summary": "Teilentsiegelung mit versickerungsfähigen Belägen oder Fugen, zum Beispiel Rasengittersteinen oder Ökopflaster.",
-      "proposeWhen": [
-        "Die befestigte Fläche soll weiter genutzt werden, zum Beispiel als Parkplatz oder Gehweg.",
-        "Belastung, Unterbau und Bodenverhältnisse erlauben einen wasserdurchlässigen Belag."
-      ],
-      "source": "https://www.sieker.de/fachinformationen/regenwasserbewirtschaftung/article/durchlaessige-pflasterbelaege-151.html"
-    },
-    {
-      "id": "bluehstreifen",
-      "name": "Blühstreifen",
-      "category": "stadtgruen",
-      "summary": "Anlage blütenreicher Säume als Nahrungs-, Lebens- und Rückzugsraum für Tiere.",
-      "proposeWhen": [
-        "Ein freier Randstreifen oder eine wenig genutzte Grünfläche ist vorhanden.",
-        "Die Fläche soll vor allem als Lebens- und Nahrungsraum für Tiere aufgewertet werden."
-      ],
-      "source": "https://www.agrar.basf.de/dam/OneCMS-Assets/Global-Assets/General-Documents/DE/nachhaltigkeit_1/bluehstreifen_bluehflaechen/bluehstreifen-bluehflaechen-DE.pdf"
-    },
-    {
-      "id": "schwammstadt",
-      "name": "Schwammstadt-Prinzip",
-      "category": "regenwasser",
-      "summary": "Kombination geeigneter Maßnahmen, um Regenwasser vor Ort zurückzuhalten, zu speichern, zu versickern oder zu nutzen.",
-      "proposeWhen": [
-        "Auf einer Fläche oder in einem Quartier können mehrere Regenwassermaßnahmen zusammenwirken.",
-        "Regenwasser soll möglichst vor Ort zurückgehalten, gespeichert, versickert oder genutzt werden."
-      ],
-      "source": "https://www.bahl-gaerten.de/regenwasser-im-garten-nutzen-das-schwammstadt-prinzip-fuer-private-gaerten/"
-    },
-    {
       "id": "gruener_gully",
       "name": "Grüner Gully",
       "category": "regenwasser",
       "summary": "Ableitung von Straßenablaufwasser in begrünte, versickerungsfähige Bereiche statt direkt in die Kanalisation.",
       "proposeWhen": [
-        "Straßenablaufwasser kann einer angrenzenden Grünfläche zugeführt werden.",
-        "Ein geeigneter Straßenablauf und ausreichend Platz für eine sichere Ableitung sind vorhanden."
+        "10–100 m²; höchstens 10 m zur nächsten erfassten Straßenlinie; Versiegelungsscore mindestens 5/10.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
       ],
-      "source": "https://regenwasseragentur.berlin/magazin/gruene-gullys-in-mitte/"
+      "source": "https://regenwasseragentur.berlin/magazin/gruene-gullys-in-mitte/",
+      "gisRule": {
+        "order": 1,
+        "expression": "\"flaeche_m2\" >= 10 AND \"flaeche_m2\" <= 100 AND \"dist_strasse\" <= 10 AND \"s_vers\" >= 5",
+        "fallback": false
+      },
+      "reason": "Kleine straßennahe Flächen können potenziell Straßenregenwasser aufnehmen.",
+      "siteChecks": [
+        "Lage und Funktion eines tatsächlichen Straßenablaufs prüfen.",
+        "Gefälle, Straßenabfluss, Leitungen, Sicherheit und Versickerung prüfen."
+      ]
     },
     {
       "id": "pocket_park",
@@ -92,22 +60,41 @@
       "category": "stadtgruen",
       "summary": "Kleine, intensiv begrünte Aufenthaltsfläche mit Bäumen, Sträuchern und heimischen Blühpflanzen.",
       "proposeWhen": [
-        "Eine zusammenhängende Freifläche kann als öffentlich nutzbarer Grün- und Aufenthaltsraum entwickelt werden.",
-        "In der Umgebung besteht ein Bedarf an Abkühlung und zusätzlichem Grün."
+        "Ab 800 m²; Hitzescore ≥ 8; mindestens 300 m von der nächsten erfassten größeren Grünfläche entfernt; Bevölkerungsscore ≥ 5.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
       ],
-      "source": "https://www.bochum.de/Die-Bochum-Strategie/Die-Kompetenzen-der-Strategie/Grossstadt-mit-Lebensgefuehl/Pocket-Parks"
+      "source": "https://www.bochum.de/Die-Bochum-Strategie/Die-Kompetenzen-der-Strategie/Grossstadt-mit-Lebensgefuehl/Pocket-Parks",
+      "gisRule": {
+        "order": 2,
+        "expression": "\"flaeche_m2\" >= 800 AND \"s_hitze\" >= 8 AND \"dist_gruen\" >= 300 AND \"s_bev\" >= 5",
+        "fallback": false
+      },
+      "reason": "Große hitzebelastete Flächen mit Grün- und Bevölkerungsbedarf bieten Potenzial für neue Aufenthalts- und Grünräume.",
+      "siteChecks": [
+        "Zusammenhängende nutzbare Fläche, Zugang und Entfall bisheriger Parkplätze klären.",
+        "Baumbestand, Leitungen und langfristige Unterhaltung prüfen."
+      ]
     },
     {
-      "id": "gruenflaeche_mit_baeumen",
-      "name": "Grünfläche mit Bäumen",
-      "category": "stadtgruen",
-      "summary": "Begrünung einer mittleren straßenbegleitenden Fläche mit Bäumen.",
+      "id": "schwammstadt",
+      "name": "Schwammstadt-Prinzip",
+      "category": "regenwasser",
+      "summary": "Kombination geeigneter Maßnahmen, um Regenwasser vor Ort zurückzuhalten, zu speichern, zu versickern oder zu nutzen.",
       "proposeWhen": [
-        "Eine mittelgroße Freifläche entlang einer Straße ist vorhanden.",
-        "Standort, Leitungen und verfügbare Fläche lassen Baumpflanzungen zu."
+        "Ab 1.500 m²; Versiegelungsscore ≥ 7; Niederschlagsscore ≥ 7.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
       ],
-      "source": null,
-      "sourceNote": "Maßnahmenzuordnung in Maßnahmen.docx"
+      "source": "https://www.bahl-gaerten.de/regenwasser-im-garten-nutzen-das-schwammstadt-prinzip-fuer-private-gaerten/",
+      "gisRule": {
+        "order": 3,
+        "expression": "\"flaeche_m2\" >= 1500 AND \"s_vers\" >= 7 AND \"s_regen\" >= 7",
+        "fallback": false
+      },
+      "reason": "Große, stark versiegelte Flächen bieten Raum für kombinierte Entsiegelungs-, Begrünungs- und Rückhaltemaßnahmen.",
+      "siteChecks": [
+        "Konkrete kombinierbare Bausteine festlegen.",
+        "Realen Wasserzufluss, Boden, Grundwasser und Nutzung prüfen."
+      ]
     },
     {
       "id": "versickerungsmulde",
@@ -115,10 +102,42 @@
       "category": "regenwasser",
       "summary": "Dauerhaft begrünte Geländemulde zur kurzfristigen oberirdischen Speicherung und Versickerung von Regenwasser.",
       "proposeWhen": [
-        "Eine ausreichend große, tiefer liegende Freifläche ist verfügbar.",
-        "Es fällt Regenwasser an, das nach Prüfung der Boden- und Grundwasserverhältnisse versickern kann."
+        "Ab 400 m²; Versiegelungsscore ≥ 6; Niederschlagsscore ≥ 8.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
       ],
-      "source": "https://www.sieker.de/fachinformationen/regenwasserbewirtschaftung/versickerung/article/versickerungsmulden-156.html"
+      "source": "https://www.sieker.de/fachinformationen/regenwasserbewirtschaftung/versickerung/article/versickerungsmulden-156.html",
+      "gisRule": {
+        "order": 4,
+        "expression": "\"flaeche_m2\" >= 400 AND \"s_vers\" >= 6 AND \"s_regen\" >= 8",
+        "fallback": false
+      },
+      "reason": "Größere versiegelte Flächen können Raum für begrünte Rückhalte- und Versickerungsmulden bieten.",
+      "siteChecks": [
+        "Tatsächlichen Zufluss, Geländetiefpunkt und verfügbare Teilfläche prüfen.",
+        "Versickerungsfähigkeit, Grundwasser, Schadstoffe und Leitungen prüfen."
+      ]
+    },
+    {
+      "id": "gruenflaeche_mit_baeumen",
+      "name": "Grünfläche mit Bäumen",
+      "category": "stadtgruen",
+      "summary": "Begrünung einer geeigneten Fläche mit standortgerechten Bäumen zur Verschattung und Verdunstungskühlung.",
+      "proposeWhen": [
+        "Ab 200 m²; Hitzescore ≥ 8; mindestens 300 m zur nächsten erfassten größeren Grünfläche.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
+      ],
+      "source": null,
+      "sourceNote": "Maßnahmenzuordnung in Maßnahmen.docx",
+      "gisRule": {
+        "order": 5,
+        "expression": "\"flaeche_m2\" >= 200 AND \"s_hitze\" >= 8 AND \"dist_gruen\" >= 300",
+        "fallback": false
+      },
+      "reason": "Bäume schaffen Verschattung und können die lokale Wärmebelastung mindern.",
+      "siteChecks": [
+        "Ausreichenden Wurzelraum, Leitungen, Verschattung und Nutzung prüfen.",
+        "Eine tatsächliche Straßenlage wird in dieser Regel nicht vorausgesetzt."
+      ]
     },
     {
       "id": "regengarten",
@@ -126,106 +145,165 @@
       "category": "regenwasser",
       "summary": "Begrünte Senke, die Oberflächenwasser sammelt und dessen Versickerung oder Nutzung unterstützt.",
       "proposeWhen": [
-        "Oberflächenwasser von Dach-, Straßen-, Gehweg- oder Hofflächen kann in eine begrünte Senke geleitet werden.",
-        "Platz sowie geeignete Boden- und Versickerungsverhältnisse sind vorhanden."
+        "Ab 80 m²; Versiegelungsscore ≥ 6; Niederschlagsscore ≥ 7.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
       ],
-      "source": "https://biblus.accasoftware.com/de/projekt-eines-regengartens-hier-ein-technischer-leitfaden/"
+      "source": "https://biblus.accasoftware.com/de/projekt-eines-regengartens-hier-ein-technischer-leitfaden/",
+      "gisRule": {
+        "order": 6,
+        "expression": "\"flaeche_m2\" >= 80 AND \"s_vers\" >= 6 AND \"s_regen\" >= 7",
+        "fallback": false
+      },
+      "reason": "Begrünte Senken könnten Niederschlagswasser aus benachbarten befestigten Bereichen aufnehmen.",
+      "siteChecks": [
+        "Tatsächlichen Oberflächenwasserzufluss, Platzbedarf und Geländehöhen prüfen.",
+        "Boden-, Grundwasser- und Schadstoffverhältnisse prüfen."
+      ]
+    },
+    {
+      "id": "bluehstreifen",
+      "name": "Blühstreifen",
+      "category": "stadtgruen",
+      "summary": "Anlage blütenreicher Säume als Nahrungs-, Lebens- und Rückzugsraum für Tiere.",
+      "proposeWhen": [
+        "10 bis unter 80 m²; zusätzlich Hitzescore ≥ 5 oder mindestens 300 m zur nächsten erfassten größeren Grünfläche.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
+      ],
+      "source": "https://www.agrar.basf.de/dam/OneCMS-Assets/Global-Assets/General-Documents/DE/nachhaltigkeit_1/bluehstreifen_bluehflaechen/bluehstreifen-bluehflaechen-DE.pdf",
+      "gisRule": {
+        "order": 7,
+        "expression": "\"flaeche_m2\" >= 10 AND \"flaeche_m2\" < 80 AND (\"s_hitze\" >= 5 OR \"dist_gruen\" >= 300)",
+        "fallback": false
+      },
+      "reason": "Kleine Flächen können durch blütenreiche Vegetation ökologische Trittsteine werden.",
+      "siteChecks": [
+        "Nutzungsfreigabe und tatsächlich begrünbaren Randstreifen prüfen.",
+        "Pflege, Verkehrssicherheit und Artenwahl prüfen."
+      ]
+    },
+    {
+      "id": "wasserdurchlaessiger_belag",
+      "name": "Wasserdurchlässige Bodenbeläge",
+      "category": "durchlaessige_belaege",
+      "summary": "Teilentsiegelung mit versickerungsfähigen Belägen oder Fugen, zum Beispiel Rasengittersteinen oder Ökopflaster.",
+      "proposeWhen": [
+        "Standardempfehlung, falls keine der sieben vorrangigen Regeln greift; besonders bei weiterhin genutzten Parkplätzen.",
+        "Ergebnis ist eine GIS-Potenzialempfehlung; Umsetzbarkeit ist vor Ort zu prüfen."
+      ],
+      "source": "https://www.sieker.de/fachinformationen/regenwasserbewirtschaftung/article/durchlaessige-pflasterbelaege-151.html",
+      "gisRule": {
+        "order": 8,
+        "expression": "TRUE",
+        "fallback": true
+      },
+      "reason": "Durchlässige Beläge können die Nutzungsfunktion teilweise erhalten und Oberflächenabfluss reduzieren.",
+      "siteChecks": [
+        "Tatsächliche Versiegelung und zukünftige Nutzung prüfen.",
+        "Unterbau, Verkehrsbelastung, Versickerung und Schadstoffeinträge prüfen."
+      ]
     }
   ],
   "areaProfiles": [
     {
-      "id": "gross_heiss_wenig_gruen",
-      "description": "Große Fläche, hohe Hitzebelastung, wenig Grün",
+      "id": "profil_gruener_gully",
+      "description": "10–100 m²; höchstens 10 m zur nächsten erfassten Straßenlinie; Versiegelungsscore mindestens 5/10.",
+      "possibilities": [
+        {
+          "measureId": "gruener_gully",
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
+        }
+      ]
+    },
+    {
+      "id": "profil_pocket_park",
+      "description": "Ab 800 m²; Hitzescore ≥ 8; mindestens 300 m von der nächsten erfassten größeren Grünfläche entfernt; Bevölkerungsscore ≥ 5.",
       "possibilities": [
         {
           "measureId": "pocket_park",
-          "when": "Wenn die Fläche als zugänglicher Grün- und Aufenthaltsraum entwickelt werden kann."
-        },
-        {
-          "measureId": "schwammstadt",
-          "when": "Wenn zusätzlich Regenwasser vor Ort zurückgehalten oder genutzt werden soll und mehrere Bausteine kombinierbar sind."
-        },
-        {
-          "measureId": "versickerungsmulde",
-          "when": "Wenn Regenwasser anfällt, ausreichend Fläche vorhanden ist und die Standortprüfung Versickerung zulässt."
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
         }
       ]
     },
     {
-      "id": "strassenbegleitende_mittelflaeche",
-      "description": "Mittelgroße Fläche entlang einer Straße",
+      "id": "profil_schwammstadt",
+      "description": "Ab 1.500 m²; Versiegelungsscore ≥ 7; Niederschlagsscore ≥ 7.",
+      "possibilities": [
+        {
+          "measureId": "schwammstadt",
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
+        }
+      ]
+    },
+    {
+      "id": "profil_versickerungsmulde",
+      "description": "Ab 400 m²; Versiegelungsscore ≥ 6; Niederschlagsscore ≥ 8.",
+      "possibilities": [
+        {
+          "measureId": "versickerungsmulde",
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
+        }
+      ]
+    },
+    {
+      "id": "profil_gruenflaeche_mit_baeumen",
+      "description": "Ab 200 m²; Hitzescore ≥ 8; mindestens 300 m zur nächsten erfassten größeren Grünfläche.",
+      "possibilities": [
+        {
+          "measureId": "gruenflaeche_mit_baeumen",
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
+        }
+      ]
+    },
+    {
+      "id": "profil_regengarten",
+      "description": "Ab 80 m²; Versiegelungsscore ≥ 6; Niederschlagsscore ≥ 7.",
+      "possibilities": [
+        {
+          "measureId": "regengarten",
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
+        }
+      ]
+    },
+    {
+      "id": "profil_bluehstreifen",
+      "description": "10 bis unter 80 m²; zusätzlich Hitzescore ≥ 5 oder mindestens 300 m zur nächsten erfassten größeren Grünfläche.",
       "possibilities": [
         {
           "measureId": "bluehstreifen",
-          "when": "Wenn ein Randstreifen begrünt werden kann und die Aufwertung der Biodiversität im Vordergrund steht."
-        },
-        {
-          "measureId": "gruenflaeche_mit_baeumen",
-          "when": "Wenn entlang der Straße ausreichend Platz für eine begrünte Fläche mit Bäumen besteht."
-        },
-        {
-          "measureId": "gruener_gully",
-          "when": "Wenn Straßenablaufwasser gezielt in die Fläche geleitet werden kann."
-        },
-        {
-          "measureId": "regengarten",
-          "when": "Wenn Oberflächenwasser zufließt und Platz sowie geeignete Versickerungsverhältnisse vorhanden sind."
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
         }
       ]
     },
     {
-      "id": "kleine_strassenrandflaeche_mit_zufluss",
-      "description": "Kleine Straßenrandfläche mit möglichem Regenwasserzufluss",
-      "possibilities": [
-        {
-          "measureId": "gruener_gully",
-          "when": "Wenn Straßenablaufwasser sicher in eine begrünte Fläche geleitet werden kann."
-        },
-        {
-          "measureId": "regengarten",
-          "when": "Wenn eine begrünte Senke angelegt werden kann und die Bodenverhältnisse geeignet sind."
-        },
-        {
-          "measureId": "schwammstadt",
-          "when": "Wenn die Fläche Teil eines größeren, abgestimmten Regenwasserkonzepts ist."
-        }
-      ]
-    },
-    {
-      "id": "parkplatz_nutzung_bleibt",
-      "description": "Parkplatz, dessen Stellplatznutzung erhalten bleiben soll",
+      "id": "profil_wasserdurchlaessiger_belag",
+      "description": "Standardempfehlung, falls keine der sieben vorrangigen Regeln greift; besonders bei weiterhin genutzten Parkplätzen.",
       "possibilities": [
         {
           "measureId": "wasserdurchlaessiger_belag",
-          "when": "Wenn die Stellplatznutzung bestehen bleibt und Unterbau sowie Belastung einen durchlässigen Belag erlauben."
-        },
-        {
-          "measureId": "regengarten",
-          "when": "Wenn zusätzlich eine angrenzende geeignete Fläche Regenwasser aufnehmen kann."
-        },
-        {
-          "measureId": "schwammstadt",
-          "when": "Wenn Belagswechsel und weitere Regenwasserbausteine zusammen geplant werden."
+          "when": "Erste passende Regel in der angegebenen Reihenfolge; vor Ort prüfen."
         }
       ]
+    }
+  ],
+  "methodNotes": [
+    "Die beiden ursprünglichen Maßnahmen dachbegruenung und fassadenbegruenung sind nicht enthalten: Gebäudeflächen und Fassadeneignung sind im Kandidatenmodell nicht untersucht.",
+    "s_regen ist ein relativer Niederschlagsindikator aus N_VALUE; kein gemessener Zufluss und keine modellierte Starkregen- oder Überflutungsgefahr.",
+    "dist_strasse misst den Abstand zur erfassten OSM-Straßenlinie und nicht zum Straßenrand oder tatsächlichen Straßenablauf.",
+    "dist_gruen misst den Abstand zur im Modell verwendeten Auswahl größerer Grünflächen, nicht zu jeder Grünfläche.",
+    "Flächengrenzen und Schwellenwerte sind heuristische Regeln für die Hackathon-Priorisierung, keine technischen Mindestwerte.",
+    "Gebietseignung, Nutzbarkeit, Eigentum, Versickerungsfähigkeit und Entwässerung müssen vor Umsetzung geprüft werden.",
+    "Quellen-URLs aus der Originaldatei wurden unverändert übernommen und hier nicht erneut fachlich geprüft."
+  ],
+  "excludedFromGisModel": [
+    {
+      "id": "dachbegruenung",
+      "name": "Flachdachbegrünung",
+      "reason": "Gebäude von der Kandidatenauswahl ausgeschlossen; Dachneigung, Statik und Eignung nicht geprüft."
     },
     {
-      "id": "grossflaeche_hoher_regenzufluss",
-      "description": "Größere Fläche mit hohem Regenwasseraufkommen",
-      "possibilities": [
-        {
-          "measureId": "versickerungsmulde",
-          "when": "Wenn ausreichend Fläche verfügbar ist und Boden- sowie Grundwasserverhältnisse die Versickerung zulassen."
-        },
-        {
-          "measureId": "regengarten",
-          "when": "Wenn Teilbereiche als begrünte Senken gestaltet werden können."
-        },
-        {
-          "measureId": "schwammstadt",
-          "when": "Wenn mehrere Maßnahmen zum Rückhalt, zur Versickerung oder Nutzung des Wassers kombiniert werden."
-        }
-      ]
+      "id": "fassadenbegruenung",
+      "name": "Vertikale Begrünung / Fassadenbegrünung",
+      "reason": "Geeignete Fassaden und angrenzende Wände nicht systematisch analysiert."
     }
   ]
 }

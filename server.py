@@ -94,6 +94,7 @@ def geopackage_dop20_tiles():
 
     tiles = []
     zoom_levels = set()
+    pixel_sizes = {}
     for zoom, column, row, matrix_width, matrix_height, tile_width, tile_height, pixel_x, pixel_y in rows:
         if not (0 <= column < matrix_width and 0 <= row < matrix_height):
             raise ValueError("Das DOP20-GeoPackage enthält eine Kachel außerhalb ihrer Matrix.")
@@ -113,53 +114,15 @@ def geopackage_dop20_tiles():
             "bounds": [[southwest[1], southwest[0]], [northeast[1], northeast[0]]],
         })
         zoom_levels.add(zoom)
+        pixel_sizes[zoom] = [pixel_x, pixel_y]
 
     if not tiles:
         raise ValueError("Das DOP20-GeoPackage enthält keine Bildkacheln.")
-    if len(zoom_levels) != 1:
-        raise ValueError("Das DOP20-GeoPackage muss für das Mosaik genau eine Zoomstufe enthalten.")
-
-    min_column = min(tile["column"] for tile in tiles)
-    max_column = max(tile["column"] for tile in tiles)
-    min_row = min(tile["row"] for tile in tiles)
-    max_row = max(tile["row"] for tile in tiles)
-    tile_width = rows[0][5]
-    tile_height = rows[0][6]
-    pixel_x = rows[0][7]
-    pixel_y = rows[0][8]
-    mosaic_west = min_x + min_column * tile_width * pixel_x
-    mosaic_east = min_x + (max_column + 1) * tile_width * pixel_x
-    mosaic_north = max_y - min_row * tile_height * pixel_y
-    mosaic_south = max_y - (max_row + 1) * tile_height * pixel_y
-    southwest = utm_to_wgs84(mosaic_west, mosaic_south)
-    northeast = utm_to_wgs84(mosaic_east, mosaic_north)
-    source_corners = [
-        utm_to_wgs84(mosaic_west, mosaic_north),
-        utm_to_wgs84(mosaic_east, mosaic_north),
-        utm_to_wgs84(mosaic_east, mosaic_south),
-        utm_to_wgs84(mosaic_west, mosaic_south),
-    ]
-    web_mercator_radius = 6_378_137.0
-    projected_corners = [
-        (
-            web_mercator_radius * math.radians(longitude),
-            web_mercator_radius * math.log(math.tan(math.pi / 4 + math.radians(latitude) / 2)),
-        )
-        for longitude, latitude in source_corners
-    ]
     return {
         "layer": DOP20_TABLE,
         "tiles": tiles,
         "zoomLevels": sorted(zoom_levels),
-        "tileWidth": tile_width,
-        "tileHeight": tile_height,
-        "sourceOrigin": [mosaic_west, mosaic_north],
-        "pixelSize": [pixel_x, pixel_y],
-        "webMercatorBounds": [
-            [min(point[0] for point in projected_corners), min(point[1] for point in projected_corners)],
-            [max(point[0] for point in projected_corners), max(point[1] for point in projected_corners)],
-        ],
-        "bounds": [[southwest[1], southwest[0]], [northeast[1], northeast[0]]],
+        "pixelSizes": pixel_sizes,
     }
 
 
