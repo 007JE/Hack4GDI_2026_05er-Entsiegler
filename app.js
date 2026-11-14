@@ -1,4 +1,4 @@
-const map = L.map("map", { zoomControl: false }).setView([49.9929, 8.2473], 12);
+const map = L.map("map", { zoomControl: false, preferCanvas: true }).setView([49.9929, 8.2473], 12);
 const dataLayerPaneNames = new Map([
   ["candidates", "data-layer-candidates"],
   ["aerial", "data-layer-aerial"],
@@ -188,25 +188,25 @@ async function loadLicenseBanner() {
 function loadDop20Layer() {
   if (aerialLoadPromise) return aerialLoadPromise;
 
-  aerialLoadPromise = fetch("api/geopackage/dop20/tiles")
+  aerialLoadPromise = fetch("data/geopackage/dop20_tiles.json")
     .then(async (response) => {
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || `DOP20-GeoPackage antwortet mit HTTP ${response.status}.`);
-      return payload;
+      if (!response.ok) {
+        throw new Error(`DOP20-Luftbildindex antwortet mit HTTP ${response.status}.`);
+      }
+      return response.json();
     })
     .then((payload) => {
-        const { tiles } = payload;
-        if (!Array.isArray(tiles) || tiles.length === 0) {
-          throw new Error("Das DOP20-GeoPackage enthält keine Bildkacheln.");
-        }
-        const pixelSizes = payload.pixelSizes && typeof payload.pixelSizes === "object"
-          ? payload.pixelSizes
-          : {};
-        const zoomLevels = payload.zoomLevels || [...new Set(tiles.map((tile) => tile.zoom))].sort((a, b) => a - b);
-        if (!Array.isArray(zoomLevels) || zoomLevels.length === 0) {
-        throw new Error("Das DOP20-GeoPackage enthält keine Bildkacheln.");
+      const { tiles } = payload;
+      if (!Array.isArray(tiles) || tiles.length === 0) {
+        throw new Error("Der DOP20-Luftbildindex enthält keine Bildkacheln.");
       }
-
+      const pixelSizes = payload.pixelSizes && typeof payload.pixelSizes === "object"
+        ? payload.pixelSizes
+        : {};
+      const zoomLevels = payload.zoomLevels || [...new Set(tiles.map((tile) => tile.zoom))].sort((a, b) => a - b);
+      if (!Array.isArray(zoomLevels) || zoomLevels.length === 0) {
+        throw new Error("Der DOP20-Luftbildindex enthält keine Bildkacheln.");
+      }
       aerialTiles = tiles;
       aerialZoomLevels = [...zoomLevels].sort((a, b) => a - b);
       aerialPixelSizes = pixelSizes;
@@ -215,8 +215,8 @@ function loadDop20Layer() {
     })
     .catch((error) => {
       aerialLoadPromise = null;
-      console.error("DOP20-GeoPackage konnte nicht geladen werden:", error);
-      aerialStatus.textContent = error.message || "DOP20-GeoPackage konnte nicht geladen werden.";
+      console.error("DOP20-Luftbild konnte nicht geladen werden:", error);
+      aerialStatus.textContent = error.message || "DOP20-Luftbild konnte nicht geladen werden.";
     });
 
   return aerialLoadPromise;
@@ -247,7 +247,7 @@ function refreshDop20Layer() {
   const generation = ++aerialRenderGeneration;
   aerialLayer.clearLayers();
   if (!visibleTiles.length) {
-    aerialStatus.textContent = "Keine DOP20-Kacheln im sichtbaren Kartenausschnitt.";
+    aerialStatus.textContent = "Kein DOP20-Luftbild im sichtbaren Kartenausschnitt.";
     return;
   }
 
@@ -259,7 +259,7 @@ function refreshDop20Layer() {
     });
     overlay.once("error", () => {
       if (generation === aerialRenderGeneration) {
-        aerialStatus.textContent = `DOP20-Originalkachel ${tile.zoom}/${tile.column}/${tile.row} konnte nicht geladen werden.`;
+        aerialStatus.textContent = "DOP20-Luftbild konnte nicht geladen werden.";
       }
     });
     aerialLayer.addLayer(overlay);
