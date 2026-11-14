@@ -104,14 +104,19 @@ def geopackage_dop20_tiles():
         east = west + tile_span_x
         north = max_y - row * tile_span_y
         south = north - tile_span_y
-        southwest = utm_to_wgs84(west, south)
-        northeast = utm_to_wgs84(east, north)
+        corners = [
+            utm_to_wgs84(x, y)
+            for x, y in ((west, south), (west, north), (east, south), (east, north))
+        ]
         tiles.append({
             "zoom": zoom,
             "column": column,
             "row": row,
             "url": f"/api/geopackage/dop20/tiles/{zoom}/{column}/{row}",
-            "bounds": [[southwest[1], southwest[0]], [northeast[1], northeast[0]]],
+            "bounds": [
+                [min(latitude for _, latitude in corners), min(longitude for longitude, _ in corners)],
+                [max(latitude for _, latitude in corners), max(longitude for longitude, _ in corners)],
+            ],
         })
         zoom_levels.add(zoom)
         pixel_sizes[zoom] = [pixel_x, pixel_y]

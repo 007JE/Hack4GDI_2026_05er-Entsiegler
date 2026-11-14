@@ -44,44 +44,6 @@
         </div>
 
         <div id="data-panel" class="tab-panel layer-panel" role="region" aria-labelledby="data-tab" hidden>
-          <h2>Layer</h2>
-          <p class="section-hint">Hintergrundkarten und vorhandene räumliche Daten.</p>
-          <details class="layer-group layer-order-group">
-            <summary>Reihenfolge der Layer</summary>
-            <div class="layer-group-content">
-              <p class="section-hint">Ziehe Layer an die gewünschte Position. Der oberste Eintrag liegt auf der Karte ganz oben. Die Pfeile verschieben Layer alternativ per Klick.</p>
-              <ol id="data-layer-order" class="layer-order-list" aria-label="Layer-Reihenfolge, oberster Layer zuerst">
-                <li class="layer-order-item" data-layer-id="candidates" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">Entsiegelungskandidaten</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Entsiegelungskandidaten nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Entsiegelungskandidaten nach unten verschieben">↓</button>
-                  </span>
-                </li>
-                <li class="layer-order-item" data-layer-id="aerial" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">Luftbild Mainz (DOP20 GeoPackage)</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Luftbild nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Luftbild nach unten verschieben">↓</button>
-                  </span>
-                </li>
-                <li class="layer-order-item" data-layer-id="basemap" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">OpenStreetMap</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="OpenStreetMap nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="OpenStreetMap nach unten verschieben">↓</button>
-                  </span>
-                </li>
-              </ol>
-              <p id="layer-order-status" class="layer-order-status" role="status" aria-live="polite"></p>
-            </div>
-          </details>
           <details class="layer-group">
             <summary>Hintergrundkarten</summary>
             <div class="layer-group-content">
@@ -95,41 +57,48 @@
                 <span class="layer-swatch aerial-swatch" aria-hidden="true"></span>
                 <span>Luftbild Mainz (DOP20 GeoPackage)</span>
               </label>
-              <p id="aerial-status" class="layer-status" role="status" aria-live="polite">
-                Originalkacheln aus data/geopackage/dop20_mainz.gpkg werden geladen …
-              </p>
+              <p id="aerial-status" class="layer-status" role="status" aria-live="polite"></p>
             </div>
           </details>
           <details class="layer-group">
-            <summary>Web-Export · GeoJSON</summary>
+            <summary>Entsiegelbare Flächen</summary>
             <div class="layer-group-content">
               <label class="layer-toggle">
                 <input id="toggle-candidates" type="checkbox" checked>
                 <span class="layer-swatch candidate-swatch" aria-hidden="true"></span>
                 <span>Entsiegelungskandidaten</span>
               </label>
-              <p class="section-hint">Für die Website exportierte Flächen.</p>
+            </div>
+          </details>
+          <details class="layer-group">
+            <summary>Legende</summary>
+            <div class="layer-group-content">
+              <p class="section-hint">Die Farbgebung der Flächen verdeutlicht das Entsiegelungspotenzial: von Grün (Stufe 1, geringes Potenzial) bis Rot (Stufe 5, sehr hohes Potenzial).</p>
+              <ol id="priority-legend" class="priority-legend" aria-label="Farblegende nach Dringlichkeit"></ol>
             </div>
           </details>
         </div>
 
         <div id="filter-panel" class="tab-panel layer-panel" role="region" aria-labelledby="filter-tab" hidden>
-          <h2>Filter</h2>
-          <p class="section-hint">Entsiegelungskandidaten nach Prioritätsstufe und möglichen Maßnahmen eingrenzen.</p>
           <details class="layer-group">
             <summary>
-              <span>Flächenfilter</span>
+              <span>Anzahl der entsiegelbaren Flächen</span>
               <span id="feature-count" class="count-badge">0</span>
             </summary>
             <div class="layer-group-content filter-section">
-              <label class="field-label" for="priority-filter">Prioritätsstufe</label>
-              <select id="priority-filter" disabled>
-                <option value="">Alle Prioritäten</option>
-              </select>
-              <label class="field-label filter-field-label" for="measure-filter">Mögliche Maßnahme</label>
-              <select id="measure-filter" disabled>
-                <option value="">Alle Maßnahmen</option>
-              </select>
+              <details class="layer-group filter-dropdown">
+                <summary>Prioritätsstufen</summary>
+                <div class="layer-group-content">
+                  <div id="priority-options" class="filter-options" role="group" aria-label="Prioritätsstufen auswählen"></div>
+                </div>
+              </details>
+              <details class="layer-group filter-dropdown">
+                <summary>Maßnahmen</summary>
+                <div class="layer-group-content">
+                  <div id="measure-options" class="filter-options" role="group" aria-label="Maßnahmen auswählen"></div>
+                </div>
+              </details>
+              <button id="clear-filters" class="clear-filters-button" type="button" disabled>Alle Filter entfernen</button>
               <p id="measure-filter-status" class="inline-status" role="status" aria-live="polite"></p>
               <p id="data-status" class="inline-status data-status" role="status" aria-live="polite">
                 Flächendaten werden geladen …
@@ -137,11 +106,6 @@
             </div>
           </details>
         </div>
-        <p class="map-credit" hidden>
-          Adresssuche:
-          <a href="https://nominatim.org/" target="_blank" rel="noreferrer">Nominatim</a>
-          / OpenStreetMap · DOP20-Luftbild aus lokalem GeoPackage
-        </p>
       </aside>
       <aside class="map-toolbox" aria-label="Werkzeugleiste">
         <div class="toolbox-buttons" role="group" aria-label="Kartenwerkzeuge">

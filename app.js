@@ -1,20 +1,26 @@
 const map = L.map("map", { zoomControl: false }).setView([49.9929, 8.2473], 12);
-const layerOrderList = document.getElementById("data-layer-order");
-const initialLayerOrderItems = [...layerOrderList.querySelectorAll(".layer-order-item")];
-const dataLayerPaneNames = new Map(initialLayerOrderItems.map(({ dataset }) => [
-  dataset.layerId,
-  `data-layer-${dataset.layerId.replace(/:/g, "-")}`,
-]));
-const dataLayerPanes = new Map([...dataLayerPaneNames].map(([id, name]) => [id, map.createPane(name)]));
+const dataLayerPaneNames = new Map([
+  ["candidates", "data-layer-candidates"],
+  ["aerial", "data-layer-aerial"],
+  ["basemap", "data-layer-basemap"],
+]);
+[...dataLayerPaneNames].forEach(([, name], index) => {
+  const pane = map.createPane(name);
+  pane.style.zIndex = String(390 - index * 25);
+});
 const featureCount = document.getElementById("feature-count");
 const dataStatus = document.getElementById("data-status");
 const searchStatus = document.getElementById("search-status");
 const searchForm = document.getElementById("search-form");
 const searchInput = document.getElementById("address-search");
-const priorityFilter = document.getElementById("priority-filter");
-const measureFilter = document.getElementById("measure-filter");
+const priorityOptions = document.getElementById("priority-options");
+const measureOptions = document.getElementById("measure-options");
+const clearFiltersButton = document.getElementById("clear-filters");
+const priorityLegend = document.getElementById("priority-legend");
 const measureFilterStatus = document.getElementById("measure-filter-status");
 const priorityDescriptions = ["sehr gering", "gering", "mittel", "hoch", "sehr hoch"];
+const priorityColors = ["#b7dca8", "#dce478", "#f3d16b", "#ed8a54", "#c83b45"];
+const priorityStrokeColors = ["#568b52", "#939a37", "#bd8b2c", "#b94c32", "#8d2530"];
 const drawingHelp = document.getElementById("drawing-help");
 const measurementResult = document.getElementById("measurement-result");
 const finishButton = document.getElementById("finish-drawing");
@@ -182,27 +188,11 @@ async function loadLicenseBanner() {
 function loadDop20Layer() {
   if (aerialLoadPromise) return aerialLoadPromise;
 
-  aerialStatus.textContent = "DOP20 Mainz wird aus dem GeoPackage geladen …";
   aerialLoadPromise = fetch("api/geopackage/dop20/tiles")
     .then(async (response) => {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `DOP20-GeoPackage antwortet mit HTTP ${response.status}.`);
       return payload;
-    })
-    .catch((apiError) => {
-      console.warn("DOP20-API ist nicht verfügbar; verwende die vorbereiteten GeoPackage-Kacheln:", apiError);
-      return fetch("data/geopackage/dop20_tiles.json")
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`statischer DOP20-Kachelindex antwortet mit HTTP ${response.status}.`);
-          }
-          return response.json();
-        })
-        .catch((fallbackError) => {
-          throw new Error(
-            `DOP20 konnte weder über die GeoPackage-API (${apiError.message}) noch aus dem statischen Kachelindex (${fallbackError.message}) geladen werden.`,
-          );
-        });
     })
     .then((payload) => {
         const { tiles } = payload;
@@ -274,11 +264,7 @@ function refreshDop20Layer() {
     });
     aerialLayer.addLayer(overlay);
   });
-  const pixelSize = aerialPixelSizes[selectedZoom];
-  const resolution = pixelSize
-    ? ` · ${pixelSize[0].toLocaleString("de-DE", { maximumFractionDigits: 2 })} × ${pixelSize[1].toLocaleString("de-DE", { maximumFractionDigits: 2 })} m/Pixel`
-    : "";
-  aerialStatus.textContent = `DOP20 aus dem GeoPackage: Stufe ${selectedZoom}${resolution}, ${visibleTiles.length} Originalkacheln.`;
+  aerialStatus.textContent = "";
 }
 
 let mainzBoundaryPromise;
@@ -654,7 +640,6 @@ function showFeatureInformation(content, event) {
 function activateTab(tab) {
   const isOpen = tab.getAttribute("aria-expanded") === "true";
   const shouldCollapse = isOpen;
-  const controlPanel = document.querySelector(".control-panel");
   panelTabs.forEach((item) => {
     const active = !shouldCollapse && item === tab;
     item.setAttribute("aria-expanded", String(active));
@@ -663,8 +648,7 @@ function activateTab(tab) {
   tabPanels.forEach((panel) => {
     panel.hidden = shouldCollapse || panel.id !== tab.getAttribute("aria-controls");
   });
-  controlPanel.classList.toggle("is-collapsed", shouldCollapse);
-  controlPanel.querySelector(".map-credit").hidden = shouldCollapse;
+  document.querySelector(".control-panel").classList.toggle("is-collapsed", shouldCollapse);
 }
 
 panelTabs.forEach((tab) => {
@@ -680,89 +664,6 @@ function setLayerVisibility(name, visible) {
   });
 }
 
-const layerVisibilityInputs = new Map([
-  ["basemap", document.getElementById("toggle-basemap")],
-  ["aerial", document.getElementById("toggle-aerial")],
-  ["candidates", document.getElementById("toggle-candidates")],
-]);
-
-function refreshLayerOrderControls() {
-  const items = [...layerOrderList.querySelectorAll(".layer-order-item")];
-  items.forEach((item, index) => {
-    const input = layerVisibilityInputs.get(item.dataset.layerId);
-    const visibility = item.querySelector("[data-layer-visibility]");
-    const visible = Boolean(input && input.checked);
-    visibility.textContent = visible ? "Sichtbar" : "Aus";
-    visibility.classList.toggle("is-visible", visible);
-    visibility.setAttribute("aria-label", visible ? "Layer ist sichtbar" : "Layer ist ausgeblendet");
-    item.querySelector('[data-direction="up"]').disabled = index === 0;
-    item.querySelector('[data-direction="down"]').disabled = index === items.length - 1;
-    item.setAttribute("aria-posinset", String(index + 1));
-    item.setAttribute("aria-setsize", String(items.length));
-  });
-}
-
-function applyDataLayerOrder(announce = false) {
-  const items = [...layerOrderList.querySelectorAll(".layer-order-item")];
-  items.forEach((item, index) => {
-    const pane = dataLayerPanes.get(item.dataset.layerId);
-    if (pane) pane.style.zIndex = String(390 - index * 25);
-  });
-  refreshLayerOrderControls();
-
-  if (announce) {
-    const firstLayerName = items[0].querySelector(".layer-order-name").textContent;
-    document.getElementById("layer-order-status").textContent = `Reihenfolge aktualisiert. Oberster Layer: ${firstLayerName}.`;
-  }
-}
-
-let draggedLayerItem = null;
-let layerOrderChanged = false;
-
-layerOrderList.addEventListener("dragstart", (event) => {
-  const item = event.target.closest(".layer-order-item");
-  if (!item) return;
-  draggedLayerItem = item;
-  layerOrderChanged = false;
-  item.classList.add("is-dragging");
-  event.dataTransfer.effectAllowed = "move";
-  event.dataTransfer.setData("text/plain", item.dataset.layerId);
-});
-
-layerOrderList.addEventListener("dragover", (event) => {
-  const target = event.target.closest(".layer-order-item");
-  if (!draggedLayerItem || !target || target === draggedLayerItem) return;
-  event.preventDefault();
-  const insertAfter = event.clientY >= target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
-  layerOrderList.insertBefore(draggedLayerItem, insertAfter ? target.nextElementSibling : target);
-  layerOrderChanged = true;
-});
-
-layerOrderList.addEventListener("drop", (event) => {
-  if (draggedLayerItem) event.preventDefault();
-});
-
-layerOrderList.addEventListener("dragend", () => {
-  if (!draggedLayerItem) return;
-  draggedLayerItem.classList.remove("is-dragging");
-  draggedLayerItem = null;
-  if (layerOrderChanged) applyDataLayerOrder(true);
-});
-
-layerOrderList.addEventListener("click", (event) => {
-  const button = event.target.closest(".layer-order-move");
-  if (!button) return;
-  const item = button.closest(".layer-order-item");
-  const sibling = button.dataset.direction === "up" ? item.previousElementSibling : item.nextElementSibling;
-  if (!sibling) return;
-  layerOrderList.insertBefore(item, button.dataset.direction === "up" ? sibling : sibling.nextElementSibling);
-  applyDataLayerOrder(true);
-  const movedIndex = [...layerOrderList.children].indexOf(item);
-  item.querySelector(`[data-direction="${movedIndex === 0 ? "down" : "up"}"]`).focus();
-});
-
-applyDataLayerOrder();
-
 [
   ["toggle-basemap", "basemap"],
   ["toggle-aerial", "aerial"],
@@ -772,7 +673,6 @@ applyDataLayerOrder();
   const checkbox = document.getElementById(inputId);
   checkbox.addEventListener("change", () => {
     setLayerVisibility(layerName, checkbox.checked);
-    refreshLayerOrderControls();
   });
 });
 
@@ -813,6 +713,7 @@ function addInfoMetric(parent, label, value, note, variant = "") {
   output.textContent = value;
   const description = L.DomUtil.create("p", "feature-metric-note", card);
   description.textContent = note;
+  return card;
 }
 
 function formatInfoArea(value) {
@@ -832,6 +733,49 @@ function formatMeasures(value) {
     .filter(Boolean)
     .map((item) => measuresById.get(item)?.name || item);
   return labels.length ? labels.join(", ") : null;
+}
+
+function catalogMeasuresFor(value) {
+  const values = Array.isArray(value)
+    ? value.map(String)
+    : typeof value === "string"
+      ? value.split(/[,;|]/)
+      : [];
+  const measures = values
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => measuresById.get(item)
+      || [...measuresById.values()].find(
+        (measure) => measure.name.toLocaleLowerCase("de-DE") === item.toLocaleLowerCase("de-DE"),
+      ))
+    .filter(Boolean);
+  return [...new Map(measures.map((measure) => [measure.id, measure])).values()];
+}
+
+function addMeasureExampleLinks(card, rawMeasures) {
+  const examples = catalogMeasuresFor(rawMeasures)
+    .map((measure) => {
+      if (typeof measure.source !== "string") return null;
+      try {
+        const url = new URL(measure.source);
+        if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+        return { name: measure.name, href: url.href, domain: url.hostname.replace(/^www\./, "") };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  if (!examples.length) return;
+
+  const links = L.DomUtil.create("div", "feature-example-links", card);
+  examples.forEach(({ name, href, domain }) => {
+    const link = L.DomUtil.create("a", "feature-popup-link", links);
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = `Beispiel ${domain} ↗`;
+    link.setAttribute("aria-label", `Beispiel für ${name} auf ${domain} öffnen`);
+  });
 }
 
 function makeMeasureInfoPopup(feature) {
@@ -899,7 +843,7 @@ function makeMeasureInfoPopup(feature) {
     "massnahme",
   ]);
   const measures = formatMeasures(rawMeasures);
-  addInfoMetric(
+  const measureCard = addInfoMetric(
     metrics,
     "Vorgeschlagene Maßnahmen",
     measures || "Noch nicht zugeordnet",
@@ -908,6 +852,7 @@ function makeMeasureInfoPopup(feature) {
       : "Keine Maßnahmen im Datensatz hinterlegt",
     measures ? "" : "is-unavailable",
   );
+  addMeasureExampleLinks(measureCard, rawMeasures);
 
   const scoreMetadata = firstProperty(properties, ["score_final", "score"]);
   const priority = firstProperty(properties, [
@@ -933,33 +878,44 @@ function makeMeasureInfoPopup(feature) {
 }
 
 function renderCandidates() {
-  const selectedPriority = priorityFilter.value;
-  const selectedMeasure = measureFilter.value;
+  const selectedPriorities = new Set([...priorityOptions.querySelectorAll("input:checked")].map(({ value }) => value));
+  const selectedMeasures = new Set([...measureOptions.querySelectorAll("input:checked")].map(({ value }) => value));
+  updateClearFiltersButton();
 
   candidateLayer.clearLayers();
   const visible = allFeatures.filter((feature) => {
     const properties = propertiesFor(feature);
-    if (selectedPriority && getPriorityLevel(properties) !== selectedPriority) return false;
-    if (selectedMeasure && !featureHasMeasure(properties, selectedMeasure)) return false;
+    if (selectedPriorities.size && !selectedPriorities.has(getPriorityLevel(properties))) return false;
+    if (
+      selectedMeasures.size
+      && ![...selectedMeasures].some((measureId) => featureHasMeasure(properties, measureId))
+    ) return false;
     return true;
   });
 
   const visibleCollection = { type: "FeatureCollection", features: visible };
   L.geoJSON(visibleCollection, {
     pane: dataLayerPaneNames.get("candidates"),
-    style: {
-      color: "#176b52",
-      fillColor: "#55a783",
-      fillOpacity: 0.56,
-      weight: 2,
+    style: (feature) => {
+      const priorityLevel = Number(getPriorityLevel(propertiesFor(feature)));
+      const colorIndex = priorityLevel - 1;
+      return {
+        color: priorityStrokeColors[colorIndex] || "#176b52",
+        fillColor: priorityColors[colorIndex] || "#55a783",
+        fillOpacity: 0.62,
+        weight: 2,
+      };
     },
-    pointToLayer: (_feature, latLng) => L.circleMarker(latLng, {
-      radius: 7,
-      color: "#176b52",
-      fillColor: "#55a783",
-      fillOpacity: 0.8,
-      weight: 2,
-    }),
+    pointToLayer: (feature, latLng) => {
+      const colorIndex = Number(getPriorityLevel(propertiesFor(feature))) - 1;
+      return L.circleMarker(latLng, {
+        radius: 7,
+        color: priorityStrokeColors[colorIndex] || "#176b52",
+        fillColor: priorityColors[colorIndex] || "#55a783",
+        fillOpacity: 0.82,
+        weight: 2,
+      });
+    },
     onEachFeature: (feature, layer) => {
       layer.on("click", (event) => showFeatureInformation(makeFeaturePopup(feature), event));
     },
@@ -1012,18 +968,67 @@ function featureHasMeasure(properties, measureId) {
 }
 
 function configureFilters() {
-  priorityFilter.replaceChildren(new Option("Alle Prioritäten", ""));
+  priorityOptions.replaceChildren();
+  priorityLegend.replaceChildren();
   for (let level = 1; level <= 5; level += 1) {
-    priorityFilter.add(new Option(
-      `Stufe ${level} – Entsiegelungspotenzial ${priorityDescriptions[level - 1]}`,
-      String(level),
-    ));
+    const levelValue = String(level);
+    addFilterCheckbox(
+      priorityOptions,
+      levelValue,
+      `Stufe ${level} – ${priorityDescriptions[level - 1]}`,
+      priorityColors[level - 1],
+    );
+
+    const legendItem = document.createElement("li");
+    const swatch = document.createElement("span");
+    swatch.className = "priority-swatch";
+    swatch.style.backgroundColor = priorityColors[level - 1];
+    swatch.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = `Stufe ${level}: ${priorityDescriptions[level - 1]}`;
+    legendItem.append(swatch, label);
+    priorityLegend.append(legendItem);
   }
-  priorityFilter.disabled = false;
+  updateClearFiltersButton();
 }
 
-priorityFilter.addEventListener("change", renderCandidates);
-measureFilter.addEventListener("change", renderCandidates);
+clearFiltersButton.addEventListener("click", () => {
+  [priorityOptions, measureOptions].forEach((container) => {
+    container.querySelectorAll("input:checked").forEach((input) => {
+      input.checked = false;
+    });
+  });
+  renderCandidates();
+  clearFiltersButton.focus();
+});
+
+function updateClearFiltersButton() {
+  clearFiltersButton.disabled = !priorityOptions.querySelector("input:checked")
+    && !measureOptions.querySelector("input:checked");
+}
+
+function addFilterCheckbox(container, value, text, color = null) {
+  const label = document.createElement("label");
+  label.className = "filter-option";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.value = value;
+  input.addEventListener("change", renderCandidates);
+  label.append(input);
+
+  if (color) {
+    const swatch = document.createElement("span");
+    swatch.className = "priority-swatch";
+    swatch.style.backgroundColor = color;
+    swatch.setAttribute("aria-hidden", "true");
+    label.append(swatch);
+  }
+
+  const name = document.createElement("span");
+  name.textContent = text;
+  label.append(name);
+  container.append(label);
+}
 
 fetch("scoring/massnahmenkatalog.json", { cache: "no-store" })
   .then((response) => {
@@ -1040,9 +1045,9 @@ fetch("scoring/massnahmenkatalog.json", { cache: "no-store" })
       }
       measuresById.set(measure.id, measure);
     });
-    measureFilter.replaceChildren(new Option("Alle Maßnahmen", ""));
-    catalog.measures.forEach(({ id, name }) => measureFilter.add(new Option(name, id)));
-    measureFilter.disabled = catalog.measures.length === 0;
+    measureOptions.replaceChildren();
+    catalog.measures.forEach(({ id, name }) => addFilterCheckbox(measureOptions, id, name));
+    updateClearFiltersButton();
     measureFilterStatus.textContent = catalog.measures.length
       ? ""
       : "Im Maßnahmenkatalog sind keine Maßnahmen hinterlegt.";
