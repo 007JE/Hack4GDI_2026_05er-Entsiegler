@@ -94,7 +94,7 @@ select {
 
 .license-banner {
   position: fixed;
-  z-index: 600;
+  z-index: 1200;
   right: 0;
   bottom: 0;
   left: 0;
@@ -1043,15 +1043,49 @@ p {
 
 @media (max-width: 600px) {
   .feature-info-card {
-    width: 300px;
+    width: 220px;
+    max-width: calc(100vw - 60px);
+    max-height: min(250px, calc(100dvh - 220px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .feature-metrics {
     grid-template-columns: 1fr;
+    gap: 5px;
   }
 
   .feature-metric {
-    padding: 8px 10px;
+    padding: 6px 8px;
+  }
+
+  .feature-info-heading {
+    margin-bottom: 8px;
+    padding-bottom: 7px;
+  }
+
+  .feature-metric-value {
+    margin-top: 4px;
+    font-size: 0.8rem;
+  }
+
+  .feature-metric-note {
+    margin-top: 3px !important;
+    font-size: 0.59rem;
+  }
+
+  .feature-info-metadata {
+    margin-top: 7px;
+    padding-top: 6px;
+  }
+
+  .feature-popup-meta-row,
+  .feature-popup-link {
+    font-size: 0.66rem;
+  }
+
+  .leaflet-popup-content {
+    margin: 8px 10px;
   }
 }
 

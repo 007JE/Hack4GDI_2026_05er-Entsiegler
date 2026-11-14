@@ -589,7 +589,7 @@ map.on("click", (event) => {
   }
   if (!informationMode) return;
 
-  const feature = findFeatureAtPoint(event.latlng);
+  const feature = findFeatureAtPoint(event.latlng, getInformationHitTolerance(event));
   if (feature) {
     showFeatureInformation(makeFeaturePopup(feature), event);
   } else {
@@ -648,7 +648,19 @@ document.getElementById("close-search-menu").addEventListener("click", () => {
 
 function showFeatureInformation(content, event) {
   if (!informationMode) return;
-  L.popup({ maxWidth: 390, minWidth: 280 })
+  const isMobile = window.matchMedia("(max-width: 600px)").matches;
+  const mapBounds = map.getContainer().getBoundingClientRect();
+  const toolboxBounds = mapToolbox.getBoundingClientRect();
+  const panelBounds = document.querySelector(".control-panel").getBoundingClientRect();
+  const topPadding = Math.max(12, panelBounds.bottom - mapBounds.top + 10);
+  const bottomPadding = Math.max(90, mapBounds.bottom - toolboxBounds.top + 12);
+  L.popup({
+    maxWidth: isMobile ? 250 : 390,
+    minWidth: isMobile ? 190 : 280,
+    offset: isMobile ? L.point(18, 0) : L.point(0, 7),
+    autoPanPaddingTopLeft: isMobile ? L.point(12, topPadding) : L.point(5, 5),
+    autoPanPaddingBottomRight: isMobile ? L.point(18, bottomPadding) : L.point(5, 5),
+  })
     .setLatLng(event.latlng)
     .setContent(content)
     .openOn(map);
@@ -674,7 +686,6 @@ function pointInRing(point, coordinates) {
   for (let index = 0; index < coordinates.length; index += 1) {
     const currentPoint = map.latLngToLayerPoint(L.latLng(coordinates[index][1], coordinates[index][0]));
     const previousPoint = map.latLngToLayerPoint(L.latLng(coordinates[previous][1], coordinates[previous][0]));
-    if (pointSegmentDistance(point, previousPoint, currentPoint) <= 6) return true;
     if ((currentPoint.y > point.y) !== (previousPoint.y > point.y)) {
       const crossingX = ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y))
         / (previousPoint.y - currentPoint.y) + currentPoint.x;
@@ -685,62 +696,104 @@ function pointInRing(point, coordinates) {
   return inside;
 }
 
-function lineContainsPoint(point, coordinates) {
+function distanceToRing(point, coordinates) {
+  let distance = Number.POSITIVE_INFINITY;
   for (let index = 1; index < coordinates.length; index += 1) {
     const start = map.latLngToLayerPoint(L.latLng(coordinates[index - 1][1], coordinates[index - 1][0]));
     const end = map.latLngToLayerPoint(L.latLng(coordinates[index][1], coordinates[index][0]));
-    if (pointSegmentDistance(point, start, end) <= 8) return true;
+    distance = Math.min(distance, pointSegmentDistance(point, start, end));
   }
-  return false;
+  if (coordinates.length > 1) {
+    const start = map.latLngToLayerPoint(L.latLng(coordinates[coordinates.length - 1][1], coordinates[coordinates.length - 1][0]));
+    const end = map.latLngToLayerPoint(L.latLng(coordinates[0][1], coordinates[0][0]));
+    distance = Math.min(distance, pointSegmentDistance(point, start, end));
+  }
+  return distance;
 }
 
-function geometryContainsPoint(geometry, point) {
-  if (!geometry) return false;
-  const containsLine = (lines) => lines.some((coordinates) => lineContainsPoint(point, coordinates));
+function distanceToLine(point, coordinates) {
+  let distance = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const start = map.latLngToLayerPoint(L.latLng(coordinates[index - 1][1], coordinates[index - 1][0]));
+    const end = map.latLngToLayerPoint(L.latLng(coordinates[index][1], coordinates[index][0]));
+    distance = Math.min(distance, pointSegmentDistance(point, start, end));
+  }
+  return distance;
+}
+
+function distanceToPolygon(point, rings) {
+  if (!rings.length) return Number.POSITIVE_INFINITY;
+  if (pointInRing(point, rings[0]) && !rings.slice(1).some((ring) => pointInRing(point, ring))) return 0;
+  return rings.reduce((distance, ring) => Math.min(distance, distanceToRing(point, ring)), Number.POSITIVE_INFINITY);
+}
+
+function geometryDistanceToPoint(geometry, point) {
+  if (!geometry) return Number.POSITIVE_INFINITY;
   switch (geometry.type) {
     case "Point": {
       const position = map.latLngToLayerPoint(L.latLng(geometry.coordinates[1], geometry.coordinates[0]));
-      return point.distanceTo(position) <= 8;
+      return point.distanceTo(position);
     }
     case "MultiPoint":
-      return geometry.coordinates.some((coordinates) => {
+      return geometry.coordinates.reduce((distance, coordinates) => {
         const position = map.latLngToLayerPoint(L.latLng(coordinates[1], coordinates[0]));
-        return point.distanceTo(position) <= 8;
-      });
+        return Math.min(distance, point.distanceTo(position));
+      }, Number.POSITIVE_INFINITY);
     case "LineString":
-      return lineContainsPoint(point, geometry.coordinates);
+      return distanceToLine(point, geometry.coordinates);
     case "MultiLineString":
-      return containsLine(geometry.coordinates);
+      return geometry.coordinates.reduce(
+        (distance, line) => Math.min(distance, distanceToLine(point, line)),
+        Number.POSITIVE_INFINITY,
+      );
     case "Polygon":
-      return pointInRing(point, geometry.coordinates[0])
-        && !geometry.coordinates.slice(1).some((ring) => pointInRing(point, ring));
+      return distanceToPolygon(point, geometry.coordinates);
     case "MultiPolygon":
-      return geometry.coordinates.some((polygon) => (
-        pointInRing(point, polygon[0])
-        && !polygon.slice(1).some((ring) => pointInRing(point, ring))
-      ));
+      return geometry.coordinates.reduce(
+        (distance, polygon) => Math.min(distance, distanceToPolygon(point, polygon)),
+        Number.POSITIVE_INFINITY,
+      );
     case "GeometryCollection":
-      return geometry.geometries.some((item) => geometryContainsPoint(item, point));
+      return geometry.geometries.reduce(
+        (distance, item) => Math.min(distance, geometryDistanceToPoint(item, point)),
+        Number.POSITIVE_INFINITY,
+      );
     default:
-      return false;
+      return Number.POSITIVE_INFINITY;
   }
 }
 
-function findFeatureAtPoint(latLng) {
+function findFeatureAtPoint(latLng, tolerance) {
   if (!map.hasLayer(candidateLayer)) return null;
   const point = map.latLngToLayerPoint(latLng);
+  const containerPoint = map.latLngToContainerPoint(latLng);
+  const searchBounds = L.latLngBounds(
+    map.containerPointToLatLng(L.point(containerPoint.x - tolerance, containerPoint.y - tolerance)),
+    map.containerPointToLatLng(L.point(containerPoint.x + tolerance, containerPoint.y + tolerance)),
+  );
   const layers = candidateLayer.getLayers();
+  let nearestFeature = null;
+  let nearestDistance = tolerance + Number.EPSILON;
   for (let index = layers.length - 1; index >= 0; index -= 1) {
     const layer = layers[index];
-    if (
-      layer.feature
-      && candidateBounds.get(layer)?.contains(latLng)
-      && geometryContainsPoint(layer.feature.geometry, point)
-    ) {
-      return layer.feature;
+    const bounds = candidateBounds.get(layer);
+    if (!layer.feature || !bounds || !bounds.intersects(searchBounds)) continue;
+    const distance = geometryDistanceToPoint(layer.feature.geometry, point);
+    if (distance <= tolerance && distance < nearestDistance) {
+      nearestFeature = layer.feature;
+      nearestDistance = distance;
     }
   }
-  return null;
+  return nearestFeature;
+}
+
+function getInformationHitTolerance(event) {
+  const originalEvent = event.originalEvent;
+  const isTouch = originalEvent?.pointerType === "touch"
+    || originalEvent?.touches?.length
+    || originalEvent?.changedTouches?.length
+    || window.matchMedia("(pointer: coarse)").matches;
+  return isTouch ? 24 : 8;
 }
 
 function activateTab(tab) {
