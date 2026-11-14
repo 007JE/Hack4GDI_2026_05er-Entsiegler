@@ -1045,9 +1045,18 @@ p {
   .feature-info-card {
     width: 220px;
     max-width: calc(100vw - 60px);
-    max-height: min(250px, calc(100dvh - 220px));
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .feature-info-heading h2,
+  .feature-popup p,
+  .feature-popup-link {
+    overflow-wrap: anywhere;
+  }
+
+  .feature-popup-link {
+    max-width: 100%;
   }
 
   .feature-metrics {

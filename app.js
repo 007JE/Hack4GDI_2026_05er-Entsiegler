@@ -1050,6 +1050,7 @@ function makeMeasureInfoPopup(feature) {
     "massnahme",
   ]);
   const measures = formatMeasures(rawMeasures);
+  addMeasureExampleLinks(heading, rawMeasures);
   const measureCard = addInfoMetric(
     metrics,
     "Vorgeschlagene Maßnahmen",
@@ -1059,7 +1060,6 @@ function makeMeasureInfoPopup(feature) {
       : "Keine Maßnahmen im Datensatz hinterlegt",
     measures ? "" : "is-unavailable",
   );
-  addMeasureExampleLinks(measureCard, rawMeasures);
 
   const scoreMetadata = firstProperty(properties, ["score_final", "score"]);
   const priority = firstProperty(properties, [
