@@ -32,6 +32,7 @@ const measureMenu = document.getElementById("measure-menu");
 const informationToggle = document.getElementById("information-toggle");
 const informationStatus = document.getElementById("information-status");
 const mapToolbox = document.querySelector(".map-toolbox");
+const controlPanel = document.querySelector(".control-panel");
 const toolButtons = [...document.querySelectorAll("[data-tool]")];
 const panelTabs = [...document.querySelectorAll(".panel-tab")];
 const tabPanels = [...document.querySelectorAll(".tab-panel")];
@@ -415,12 +416,11 @@ function setInformationMode(enabled) {
   informationStatus.textContent = enabled
     ? "Info aktiv: Kartenobjekte anklicken. Ohne diesen Modus lässt sich die Karte verschieben."
     : "";
+  setMobilePanelHidden(enabled);
   if (!enabled) map.closePopup();
   if (enabled) {
-    searchMenu.hidden = true;
-    searchToggle.setAttribute("aria-expanded", "false");
-    measureMenu.hidden = true;
-    measureToggle.setAttribute("aria-expanded", "false");
+    closeToolMenus();
+    collapseControlPanel();
     if (drawMode) setDrawMode(null);
   }
 }
@@ -593,6 +593,7 @@ map.on("click", (event) => {
   if (feature) {
     showFeatureInformation(makeFeaturePopup(feature), event);
   } else {
+    informationStatus.hidden = false;
     informationStatus.textContent = `Keine Objektinformation an dieser Stelle · ${event.latlng.lat.toFixed(5)}, ${event.latlng.lng.toFixed(5)}`;
   }
 });
@@ -605,6 +606,9 @@ toolButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setInformationMode(false);
     setDrawMode(button.dataset.tool);
+    if (window.matchMedia("(max-width: 600px)").matches) {
+      setMobilePanelHidden(true);
+    }
   });
 });
 
@@ -616,12 +620,17 @@ measureToggle.addEventListener("click", () => {
     searchMenu.hidden = true;
     searchToggle.setAttribute("aria-expanded", "false");
     setInformationMode(false);
+    collapseControlPanel();
+    setMobilePanelHidden(true);
+  } else {
+    setMobilePanelHidden(false);
   }
 });
 
 document.getElementById("close-measure-menu").addEventListener("click", () => {
   measureMenu.hidden = true;
   measureToggle.setAttribute("aria-expanded", "false");
+  setMobilePanelHidden(false);
 });
 
 informationToggle.addEventListener("click", () => {
@@ -636,27 +645,38 @@ searchToggle.addEventListener("click", () => {
     measureMenu.hidden = true;
     measureToggle.setAttribute("aria-expanded", "false");
     setInformationMode(false);
+    collapseControlPanel();
+    setMobilePanelHidden(true);
     searchInput.focus();
+  } else {
+    setMobilePanelHidden(false);
   }
 });
 
 document.getElementById("close-search-menu").addEventListener("click", () => {
   searchMenu.hidden = true;
   searchToggle.setAttribute("aria-expanded", "false");
+  setMobilePanelHidden(false);
   searchToggle.focus();
 });
 
 function showFeatureInformation(content, event) {
   if (!informationMode) return;
   const isMobile = window.matchMedia("(max-width: 600px)").matches;
+  informationStatus.hidden = true;
   const mapBounds = map.getContainer().getBoundingClientRect();
   const toolboxBounds = mapToolbox.getBoundingClientRect();
-  const panelBounds = document.querySelector(".control-panel").getBoundingClientRect();
+  const panelBounds = controlPanel.getBoundingClientRect();
   const topPadding = Math.max(12, panelBounds.bottom - mapBounds.top + 10);
   const bottomPadding = Math.max(90, mapBounds.bottom - toolboxBounds.top + 12);
+  const popupMaxHeight = Math.max(80, Math.min(
+    250,
+    toolboxBounds.top - mapBounds.top - topPadding - 36,
+  ));
   L.popup({
     maxWidth: isMobile ? 250 : 390,
     minWidth: isMobile ? 190 : 280,
+    maxHeight: isMobile ? popupMaxHeight : undefined,
     offset: isMobile ? L.point(18, 0) : L.point(0, 7),
     autoPanPaddingTopLeft: isMobile ? L.point(12, topPadding) : L.point(5, 5),
     autoPanPaddingBottomRight: isMobile ? L.point(18, bottomPadding) : L.point(5, 5),
@@ -799,6 +819,10 @@ function getInformationHitTolerance(event) {
 function activateTab(tab) {
   const isOpen = tab.getAttribute("aria-expanded") === "true";
   const shouldCollapse = isOpen;
+  if (!shouldCollapse && window.matchMedia("(max-width: 600px)").matches) {
+    closeToolMenus();
+    setInformationMode(false);
+  }
   panelTabs.forEach((item) => {
     const active = !shouldCollapse && item === tab;
     item.setAttribute("aria-expanded", String(active));
@@ -807,7 +831,31 @@ function activateTab(tab) {
   tabPanels.forEach((panel) => {
     panel.hidden = shouldCollapse || panel.id !== tab.getAttribute("aria-controls");
   });
-  document.querySelector(".control-panel").classList.toggle("is-collapsed", shouldCollapse);
+  controlPanel.classList.toggle("is-collapsed", shouldCollapse);
+}
+
+function collapseControlPanel() {
+  if (!window.matchMedia("(max-width: 600px)").matches) return;
+  panelTabs.forEach((tab) => {
+    tab.setAttribute("aria-expanded", "false");
+    tab.classList.remove("is-active");
+  });
+  tabPanels.forEach((panel) => {
+    panel.hidden = true;
+  });
+  controlPanel.classList.add("is-collapsed");
+}
+
+function setMobilePanelHidden(hidden) {
+  const isMobile = window.matchMedia("(max-width: 600px)").matches;
+  controlPanel.classList.toggle("is-mobile-overlay-hidden", hidden && isMobile);
+}
+
+function closeToolMenus() {
+  searchMenu.hidden = true;
+  searchToggle.setAttribute("aria-expanded", "false");
+  measureMenu.hidden = true;
+  measureToggle.setAttribute("aria-expanded", "false");
 }
 
 panelTabs.forEach((tab) => {

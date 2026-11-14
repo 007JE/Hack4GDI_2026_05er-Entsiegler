@@ -1152,8 +1152,12 @@ p {
     top: 10px;
     right: 10px;
     width: min(345px, calc(100vw - 20px));
-    max-height: min(58dvh, 500px);
+    max-height: min(58dvh, 500px, calc(100dvh - var(--header-height) - var(--license-banner-height) - 263px));
     border-radius: 12px;
+  }
+
+  .control-panel.is-mobile-overlay-hidden {
+    display: none;
   }
 
   .panel-tabs {
@@ -1189,6 +1193,52 @@ p {
     bottom: 0;
     width: min(280px, calc(100vw - 92px));
     max-height: min(55vh, 420px);
+  }
+
+  #measure-menu {
+    position: fixed;
+    top: calc(var(--header-height) + 10px);
+    right: 10px;
+    bottom: auto;
+    left: 10px;
+    width: auto;
+    max-height: min(185px, calc(100dvh - var(--header-height) - var(--license-banner-height) - 260px));
+    padding: 8px;
+  }
+
+  #measure-menu .toolbox-popover-heading {
+    margin-bottom: 4px;
+  }
+
+  #measure-menu .toolbox-close {
+    width: 24px;
+    height: 24px;
+  }
+
+  #measure-menu .tool-buttons {
+    gap: 6px;
+    margin: 0 0 2px;
+  }
+
+  #measure-menu .tool-button {
+    min-height: 38px;
+    gap: 2px;
+    padding: 4px;
+  }
+
+  #measure-menu .section-hint {
+    margin: 0 0 2px;
+    overflow: hidden;
+    font-size: 0.62rem;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #measure-menu .toolbox-layer-toggle {
+    min-height: 22px;
+    margin-top: 2px;
+    padding-top: 2px;
   }
 
   .map-layout .leaflet-bottom.leaflet-left {

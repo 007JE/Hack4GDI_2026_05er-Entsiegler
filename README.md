@@ -31,7 +31,7 @@ Danach <http://127.0.0.1:8000> im Browser öffnen. Auf anderen Systemen kann der
 - Adresssuche über den Geocoding-Dienst Nominatim
 - Strecke messen sowie Flächen als Polygon oder aufgezogenes Rechteck messen
 - GeoJSON-Flächen mit einklappbaren Mehrfachauswahl-Checkboxen nach Dringlichkeitsstufen und Maßnahmen filtern; Stufe 1 ist grün, Stufe 5 rot. Die Farblegende liegt unter „Layer“.
-- Responsive Bedienoberfläche mit Projektlogo
+- Responsive Bedienoberfläche mit Projektlogo; Layer-/Filterpanel und Werkzeugmenüs werden auf Mobilgeräten nacheinander geöffnet, das Messmenü ist kompakt, Panelinhalte bleiben scrollbar und das Info-Popup passt sich dem freien Kartenbereich an
 
 Leaflet, OpenStreetMap-Kartenkacheln und Adresssuche werden online geladen. Für das DOP20-Luftbild verwenden lokale Starts und statische Hosts wie GitHub Pages dasselbe, aus den 41 Originalkacheln des GeoPackages reprojizierte Web-Mercator-Mosaik. Dadurch werden keine schief ausgerichteten Mini-Overlays mehr zusammengesetzt; das komprimierte WebP-Bild ist rund 0,6 MB groß. Die Originaldaten haben etwa 7,3 × 7,8 m pro Pixel und liefern keine höhere Bildauflösung. Die vielen Flächen werden mit Leaflets Canvas-Renderer gezeichnet, um die SVG-/DOM-Last auf Mobilgeräten zu verringern.
 
