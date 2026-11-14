@@ -33,7 +33,7 @@
             type="button"
             aria-expanded="false"
             aria-controls="data-panel"
-          >Datengrundlage</button>
+          >Layer</button>
           <button
             id="filter-tab"
             class="panel-tab"
@@ -44,10 +44,10 @@
         </div>
 
         <div id="data-panel" class="tab-panel layer-panel" role="region" aria-labelledby="data-tab" hidden>
-          <h2>Datengrundlage</h2>
+          <h2>Layer</h2>
           <p class="section-hint">Hintergrundkarten und vorhandene räumliche Daten.</p>
           <details class="layer-group layer-order-group">
-            <summary>Layer-Reihenfolge ändern · Drag &amp; Drop</summary>
+            <summary>Reihenfolge der Layer</summary>
             <div class="layer-group-content">
               <p class="section-hint">Ziehe Layer an die gewünschte Position. Der oberste Eintrag liegt auf der Karte ganz oben. Die Pfeile verschieben Layer alternativ per Klick.</p>
               <ol id="data-layer-order" class="layer-order-list" aria-label="Layer-Reihenfolge, oberster Layer zuerst">
@@ -58,42 +58,6 @@
                   <span class="layer-order-actions">
                     <button class="layer-order-move" type="button" data-direction="up" aria-label="Entsiegelungskandidaten nach oben verschieben">↑</button>
                     <button class="layer-order-move" type="button" data-direction="down" aria-label="Entsiegelungskandidaten nach unten verschieben">↓</button>
-                  </span>
-                </li>
-                <li class="layer-order-item" data-layer-id="gpkg:osm_gruenflaechen_groesser_2ha" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">Grünflächen über 2 ha</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Grünflächen über 2 ha nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Grünflächen über 2 ha nach unten verschieben">↓</button>
-                  </span>
-                </li>
-                <li class="layer-order-item" data-layer-id="gpkg:osm_graues_band_parkplaetze" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">Parkplätze / versiegelte Flächen</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Parkplätze und versiegelte Flächen nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Parkplätze und versiegelte Flächen nach unten verschieben">↓</button>
-                  </span>
-                </li>
-                <li class="layer-order-item" data-layer-id="gpkg:alkis_flurstuecke" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">ALKIS-Flurstücke</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="ALKIS-Flurstücke nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="ALKIS-Flurstücke nach unten verschieben">↓</button>
-                  </span>
-                </li>
-                <li class="layer-order-item" data-layer-id="gpkg:naturdenkmal_point_mainz" draggable="true">
-                  <span class="layer-order-grip" aria-hidden="true">⠿</span>
-                  <span class="layer-order-name">Naturdenkmale (Info-Prototyp)</span>
-                  <span class="layer-order-visibility" data-layer-visibility></span>
-                  <span class="layer-order-actions">
-                    <button class="layer-order-move" type="button" data-direction="up" aria-label="Naturdenkmale nach oben verschieben">↑</button>
-                    <button class="layer-order-move" type="button" data-direction="down" aria-label="Naturdenkmale nach unten verschieben">↓</button>
                   </span>
                 </li>
                 <li class="layer-order-item" data-layer-id="aerial" draggable="true">
@@ -137,34 +101,6 @@
             </div>
           </details>
           <details class="layer-group">
-            <summary>GeoPackage · QGIS-Datengrundlage</summary>
-            <div class="layer-group-content">
-              <label class="layer-toggle">
-                <input id="toggle-gpkg-alkis_flurstuecke" type="checkbox" checked>
-                <span class="layer-swatch parcel-swatch" aria-hidden="true"></span>
-                <span data-gpkg-label>ALKIS-Flurstücke</span>
-              </label>
-              <label class="layer-toggle">
-                <input id="toggle-gpkg-naturdenkmal_point_mainz" type="checkbox" checked>
-                <span class="layer-swatch nature-swatch" aria-hidden="true"></span>
-                <span data-gpkg-label>Naturdenkmale (Info-Prototyp)</span>
-              </label>
-              <label class="layer-toggle">
-                <input id="toggle-gpkg-osm_graues_band_parkplaetze" type="checkbox">
-                <span class="layer-swatch grey-swatch" aria-hidden="true"></span>
-                <span data-gpkg-label>Parkplätze / versiegelte Flächen</span>
-              </label>
-              <label class="layer-toggle">
-                <input id="toggle-gpkg-osm_gruenflaechen_groesser_2ha" type="checkbox">
-                <span class="layer-swatch green-swatch" aria-hidden="true"></span>
-                <span data-gpkg-label>Grünflächen über 2 ha</span>
-              </label>
-              <p id="gpkg-status" class="layer-status" role="status" aria-live="polite">
-                GeoPackage-Layer werden geladen …
-              </p>
-            </div>
-          </details>
-          <details class="layer-group">
             <summary>Web-Export · GeoJSON</summary>
             <div class="layer-group-content">
               <label class="layer-toggle">
@@ -179,52 +115,32 @@
 
         <div id="filter-panel" class="tab-panel layer-panel" role="region" aria-labelledby="filter-tab" hidden>
           <h2>Filter</h2>
-          <p class="section-hint">Entsiegelungskandidaten nach Bewertung eingrenzen.</p>
+          <p class="section-hint">Entsiegelungskandidaten nach Prioritätsstufe und möglichen Maßnahmen eingrenzen.</p>
           <details class="layer-group">
             <summary>
               <span>Flächenfilter</span>
               <span id="feature-count" class="count-badge">0</span>
             </summary>
             <div class="layer-group-content filter-section">
-              <label class="field-label" for="priority-filter">Prioritätsklasse</label>
+              <label class="field-label" for="priority-filter">Prioritätsstufe</label>
               <select id="priority-filter" disabled>
                 <option value="">Alle Prioritäten</option>
               </select>
-              <fieldset id="score-filter" class="score-filter" disabled>
-                <legend>Bewertung (Score)</legend>
-                <div class="score-inputs">
-                  <label>
-                    <span class="sr-only">Mindest-Score</span>
-                    <input id="score-min" type="number" step="any" aria-label="Mindest-Score">
-                  </label>
-                  <span aria-hidden="true">bis</span>
-                  <label>
-                    <span class="sr-only">Höchst-Score</span>
-                    <input id="score-max" type="number" step="any" aria-label="Höchst-Score">
-                  </label>
-                </div>
-              </fieldset>
+              <label class="field-label filter-field-label" for="measure-filter">Mögliche Maßnahme</label>
+              <select id="measure-filter" disabled>
+                <option value="">Alle Maßnahmen</option>
+              </select>
+              <p id="measure-filter-status" class="inline-status" role="status" aria-live="polite"></p>
               <p id="data-status" class="inline-status data-status" role="status" aria-live="polite">
                 Flächendaten werden geladen …
               </p>
-            </div>
-          </details>
-          <details class="layer-group">
-            <summary>Analyse-Ergebnisse</summary>
-            <div class="layer-group-content">
-              <label class="layer-toggle">
-                <input id="filter-candidates-toggle" type="checkbox" checked>
-                <span class="layer-swatch candidate-swatch" aria-hidden="true"></span>
-                <span>Entsiegelungskandidaten anzeigen</span>
-              </label>
-              <p class="section-hint">Die Kandidaten werden aus dem GeoJSON-Web-Export dargestellt.</p>
             </div>
           </details>
         </div>
         <p class="map-credit" hidden>
           Adresssuche:
           <a href="https://nominatim.org/" target="_blank" rel="noreferrer">Nominatim</a>
-          / OpenStreetMap · DOP20-Luftbild aus lokalem GeoPackage · ALKIS-Flurstücke aus lokalem GeoPackage
+          / OpenStreetMap · DOP20-Luftbild aus lokalem GeoPackage
         </p>
       </aside>
       <aside class="map-toolbox" aria-label="Werkzeugleiste">
@@ -253,8 +169,8 @@
             class="toolbox-button"
             type="button"
             aria-pressed="false"
-            title="Info-Modus aktivieren: Objektinformationen durch Anklicken anzeigen"
-          ><span class="information-icon" aria-hidden="true">i</span><span>Objektinfo</span></button>
+            title="Info-Modus aktivieren: Informationen durch Anklicken anzeigen"
+          ><span class="information-icon" aria-hidden="true">i</span><span>Info</span></button>
         </div>
         <section id="search-menu" class="toolbox-popover" aria-label="Adresssuche" hidden>
           <div class="toolbox-popover-heading">

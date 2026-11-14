@@ -12,9 +12,9 @@ const searchStatus = document.getElementById("search-status");
 const searchForm = document.getElementById("search-form");
 const searchInput = document.getElementById("address-search");
 const priorityFilter = document.getElementById("priority-filter");
-const scoreFilter = document.getElementById("score-filter");
-const scoreMinInput = document.getElementById("score-min");
-const scoreMaxInput = document.getElementById("score-max");
+const measureFilter = document.getElementById("measure-filter");
+const measureFilterStatus = document.getElementById("measure-filter-status");
+const priorityDescriptions = ["sehr gering", "gering", "mittel", "hoch", "sehr hoch"];
 const drawingHelp = document.getElementById("drawing-help");
 const measurementResult = document.getElementById("measurement-result");
 const finishButton = document.getElementById("finish-drawing");
@@ -30,7 +30,6 @@ const toolButtons = [...document.querySelectorAll("[data-tool]")];
 const panelTabs = [...document.querySelectorAll(".panel-tab")];
 const tabPanels = [...document.querySelectorAll(".tab-panel")];
 const aerialStatus = document.getElementById("aerial-status");
-const geoPackageStatus = document.getElementById("gpkg-status");
 const areaBoundaryPane = map.createPane("area-boundary-pane");
 areaBoundaryPane.style.zIndex = "410";
 const basemapLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -48,32 +47,21 @@ const areaBoundaryLayer = L.geoJSON(null, {
   interactive: false,
   style: { color: "#174f3e", fill: false, weight: 2.5, opacity: 0.9 },
 }).addTo(map);
-const geoPackageLayers = new Map([
-  ["alkis_flurstuecke", { label: "ALKIS-Flurstücke", group: L.featureGroup().addTo(map), visible: true }],
-  ["naturdenkmal_point_mainz", { label: "Naturdenkmale (Info-Prototyp)", group: L.featureGroup().addTo(map), visible: true }],
-  ["osm_graues_band_parkplaetze", { label: "Parkplätze / versiegelte Flächen", group: L.featureGroup(), visible: false }],
-  ["osm_gruenflaechen_groesser_2ha", { label: "Grünflächen über 2 ha", group: L.featureGroup(), visible: false }],
-]);
 const mapLayers = new Map([
   ["basemap", basemapLayer],
   ["aerial", aerialLayer],
   ["candidates", candidateLayer],
   ["measurements", [drawingLayer, sketchLayer]],
-  ...[...geoPackageLayers].map(([name, layer]) => [`gpkg:${name}`, layer.group]),
 ]);
-const geoPackageRequests = new Map();
-const geoPackageMessages = new Map();
-const staticGeoPackageData = new Map();
 let allFeatures = [];
+const measuresById = new Map();
 let drawMode = null;
 let informationMode = false;
 let sketch = null;
 let rectangleStart = null;
 let rectangleDraft = null;
-let scoreBounds = null;
 let lastGeocodeRequestAt = 0;
 let isSearching = false;
-let geoPackageFetchTimer = null;
 let aerialLoadPromise = null;
 
 basemapLayer.addTo(map);
@@ -537,7 +525,7 @@ function setInformationMode(enabled) {
   map.getContainer().classList.toggle("is-identifying", enabled);
   informationStatus.hidden = !enabled;
   informationStatus.textContent = enabled
-    ? "Objektinfo aktiv: Kartenobjekte anklicken. Ohne diesen Modus lässt sich die Karte verschieben."
+    ? "Info aktiv: Kartenobjekte anklicken. Ohne diesen Modus lässt sich die Karte verschieben."
     : "";
   if (!enabled) map.closePopup();
   if (enabled) {
@@ -758,7 +746,6 @@ const layerVisibilityInputs = new Map([
   ["basemap", document.getElementById("toggle-basemap")],
   ["aerial", document.getElementById("toggle-aerial")],
   ["candidates", document.getElementById("toggle-candidates")],
-  ...[...geoPackageLayers].map(([name]) => [`gpkg:${name}`, document.getElementById(`toggle-gpkg-${name}`)]),
 ]);
 
 function refreshLayerOrderControls() {
@@ -848,227 +835,8 @@ applyDataLayerOrder();
   checkbox.addEventListener("change", () => {
     setLayerVisibility(layerName, checkbox.checked);
     refreshLayerOrderControls();
-    if (layerName === "candidates") {
-      document.getElementById("filter-candidates-toggle").checked = checkbox.checked;
-    }
   });
 });
-
-document.getElementById("filter-candidates-toggle").addEventListener("change", (event) => {
-  const visible = event.currentTarget.checked;
-  document.getElementById("toggle-candidates").checked = visible;
-  setLayerVisibility("candidates", visible);
-  refreshLayerOrderControls();
-});
-
-function setGeoPackageMessage(name, message) {
-  geoPackageMessages.set(name, message);
-  geoPackageStatus.textContent = [...geoPackageMessages.values()].join(" · ");
-}
-
-function stopGeoPackageRequest(name) {
-  const request = geoPackageRequests.get(name);
-  if (!request) return;
-  request.controller.abort();
-  geoPackageRequests.delete(name);
-}
-
-function geoPackageFeaturePopup(feature) {
-  const properties = propertiesFor(feature);
-  if (properties.kennung || properties.bezeichnung) return makeMeasureInfoPopup(feature, true);
-
-  const labels = {
-    flstkennz: "Flurstückskennzeichen",
-    flaeche_qm: "Fläche",
-    t_eigentuemer: "Eigentum",
-    nutzung: "Nutzung",
-    leisure: "Typ",
-    area_sqm: "Fläche",
-  };
-  const content = L.DomUtil.create("div", "feature-popup");
-  Object.entries(properties).forEach(([name, value]) => {
-    if (value === null || value === "") return;
-    const row = L.DomUtil.create("p", "feature-popup-meta-row", content);
-    row.textContent = `${labels[name] || name}: ${name === "flaeche_qm" || name === "area_sqm"
-      ? `${Number(value).toLocaleString("de-DE")} m²`
-      : value}`;
-  });
-  if (!content.childElementCount) content.textContent = "GeoPackage-Objekt";
-  return content;
-}
-
-function renderGeoPackageLayer(name, geojson, source = "Kartenausschnitt") {
-  const layer = geoPackageLayers.get(name);
-  const styles = {
-    alkis_flurstuecke: { color: "#b4512d", fillColor: "#e7a372", fillOpacity: 0.04, weight: 1.15 },
-    osm_graues_band_parkplaetze: { color: "#545c61", fillColor: "#788087", fillOpacity: 0.36, weight: 1.1 },
-    osm_gruenflaechen_groesser_2ha: { color: "#36754e", fillColor: "#69a779", fillOpacity: 0.4, weight: 1.4 },
-  };
-  layer.group.clearLayers();
-  L.geoJSON(geojson, {
-    pane: dataLayerPaneNames.get("gpkg:" + name),
-    style: styles[name],
-    pointToLayer: (_feature, latLng) => L.circleMarker(latLng, {
-      pane: dataLayerPaneNames.get("gpkg:" + name),
-      radius: 8,
-      color: "#ffffff",
-      weight: 2,
-      fillColor: "#7a3e9d",
-      fillOpacity: 0.95,
-      className: name === "naturdenkmal_point_mainz" ? "nature-monument-marker" : "",
-    }),
-    onEachFeature: (feature, featureLayer) => {
-      featureLayer.on("click", (event) => showFeatureInformation(geoPackageFeaturePopup(feature), event));
-    },
-  }).eachLayer((featureLayer) => layer.group.addLayer(featureLayer));
-  const count = geojson.features.length.toLocaleString("de-DE");
-  const checkbox = document.getElementById(`toggle-gpkg-${name}`);
-  const label = checkbox?.closest(".layer-toggle").querySelector("[data-gpkg-label]");
-  if (label) label.textContent = `${layer.label} (${count})`;
-  if (source === "Kartenausschnitt" && geojson.truncated) {
-    source = "Kartenausschnitt, Ausschnitt begrenzt";
-  }
-  setGeoPackageMessage(name, `${layer.label}: ${count} ${source}`);
-}
-
-function loadStaticGeoPackageLayer(name) {
-  if (!staticGeoPackageData.has(name)) {
-    const request = fetch(`data/geojson/geopackage/${name}.geojson`)
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`statisches GeoJSON antwortet mit HTTP ${response.status}.`);
-        }
-        const geojson = await response.json();
-        if (geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) {
-          throw new Error("Die Datei enthält keine gültige GeoJSON-FeatureCollection.");
-        }
-        return geojson;
-      })
-      .catch((error) => {
-        staticGeoPackageData.delete(name);
-        throw error;
-      });
-    staticGeoPackageData.set(name, request);
-  }
-  return staticGeoPackageData.get(name);
-}
-
-function fetchGeoPackageLayer(name) {
-  const layer = geoPackageLayers.get(name);
-  const checkbox = document.getElementById(`toggle-gpkg-${name}`);
-  if (!layer || !checkbox || !checkbox.checked) return;
-  if (staticGeoPackageData.has(name) && layer.group.getLayers().length > 0) return;
-
-  stopGeoPackageRequest(name);
-  const controller = new AbortController();
-  const request = { controller, id: Symbol(name) };
-  geoPackageRequests.set(name, request);
-  setGeoPackageMessage(name, `${layer.label} werden geladen …`);
-
-  const bounds = map.getBounds();
-  const requestUrl = new URL("api/geopackage/features", window.location.href);
-  requestUrl.search = new URLSearchParams({
-    layer: name,
-    bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(","),
-  });
-
-  fetch(requestUrl, { signal: controller.signal, headers: { Accept: "application/geo+json, application/json" } })
-    .then(async (response) => {
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error || `GeoPackage antwortet mit HTTP ${response.status}.`);
-      }
-      return payload;
-    })
-    .then((geojson) => {
-      if (geoPackageRequests.get(name)?.id !== request.id) return;
-      if (geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) {
-        throw new Error("Der GeoPackage-Layer lieferte keine gültige GeoJSON-FeatureCollection.");
-      }
-      renderGeoPackageLayer(name, geojson);
-    })
-    .catch((error) => {
-      if (error.name === "AbortError" || geoPackageRequests.get(name)?.id !== request.id) return;
-      setGeoPackageMessage(name, `${layer.label}: API nicht verfügbar, lade statisches GeoJSON …`);
-      return loadStaticGeoPackageLayer(name)
-        .then((geojson) => {
-          if (geoPackageRequests.get(name)?.id !== request.id || !checkbox.checked) return;
-          renderGeoPackageLayer(name, geojson, "im Gebiet (statisches GeoJSON)");
-        })
-        .catch((fallbackError) => {
-          if (geoPackageRequests.get(name)?.id !== request.id) return;
-          console.error(`GeoPackage-Layer ${name} konnte weder über die API noch als GeoJSON geladen werden:`, {
-            apiError: error,
-            geojsonError: fallbackError,
-          });
-          setGeoPackageMessage(
-            name,
-            `${layer.label} konnte nicht geladen werden: ${fallbackError.message || error.message || "unbekannter Fehler"}`,
-          );
-        });
-    })
-    .finally(() => {
-      if (geoPackageRequests.get(name)?.id === request.id) geoPackageRequests.delete(name);
-    });
-}
-
-geoPackageLayers.forEach((layer, name) => {
-  const checkbox = document.getElementById(`toggle-gpkg-${name}`);
-  checkbox.addEventListener("change", () => {
-    layer.visible = checkbox.checked;
-    refreshLayerOrderControls();
-    setLayerVisibility(`gpkg:${name}`, checkbox.checked);
-    if (checkbox.checked) {
-      fetchGeoPackageLayer(name);
-    } else {
-      stopGeoPackageRequest(name);
-      layer.group.clearLayers();
-      geoPackageMessages.delete(name);
-      geoPackageStatus.textContent = [...geoPackageMessages.values()].join(" · ");
-    }
-  });
-});
-
-map.on("moveend", () => {
-  window.clearTimeout(geoPackageFetchTimer);
-  geoPackageFetchTimer = window.setTimeout(() => {
-    geoPackageLayers.forEach((layer, name) => {
-      if (layer.visible) fetchGeoPackageLayer(name);
-    });
-  }, 250);
-});
-
-fetch("api/geopackage/layers")
-  .then(async (response) => {
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `GeoPackage antwortet mit HTTP ${response.status}.`);
-    return payload;
-  })
-  .then(({ layers }) => {
-    if (!Array.isArray(layers)) throw new Error("Der Server lieferte keine GeoPackage-Layerliste.");
-    layers.forEach((metadata) => {
-      const layer = geoPackageLayers.get(metadata.name);
-      const checkbox = document.getElementById(`toggle-gpkg-${metadata.name}`);
-      if (!layer || !checkbox) return;
-      const label = checkbox.closest(".layer-toggle").querySelector("[data-gpkg-label]");
-      if (label) {
-        label.textContent = `${metadata.label} (${Number(metadata.count).toLocaleString("de-DE")})`;
-      }
-    });
-    const visibleLayers = [...geoPackageLayers].filter(([, layer]) => layer.visible);
-    if (visibleLayers.length) {
-      visibleLayers.forEach(([name]) => fetchGeoPackageLayer(name));
-    } else {
-      geoPackageStatus.textContent = `${layers.length} GeoPackage-Layer verfügbar.`;
-    }
-  })
-  .catch((error) => {
-    console.error("GeoPackage-Layerliste konnte nicht geladen werden:", error);
-    geoPackageStatus.textContent = error.message || "GeoPackage-Layerliste konnte nicht geladen werden.";
-    geoPackageLayers.forEach((layer, name) => {
-      if (layer.visible) fetchGeoPackageLayer(name);
-    });
-  });
 
 finishButton.addEventListener("click", completeSketch);
 clearButton.addEventListener("click", () => {
@@ -1087,7 +855,7 @@ function propertiesFor(feature) {
 }
 
 function makeFeaturePopup(feature) {
-  return makeMeasureInfoPopup(feature, false);
+  return makeMeasureInfoPopup(feature);
 }
 
 function firstProperty(properties, names) {
@@ -1124,25 +892,14 @@ function formatMeasures(value) {
   return null;
 }
 
-function addExternalInfoLink(parent, href, label) {
-  if (typeof href !== "string" || !/^https?:\/\//i.test(href)) return;
-  const link = L.DomUtil.create("a", "feature-popup-link", parent);
-  link.href = href;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = label;
-}
-
-function makeMeasureInfoPopup(feature, isNatureMonument) {
+function makeMeasureInfoPopup(feature) {
   const properties = propertiesFor(feature);
   const content = L.DomUtil.create("article", "feature-popup feature-info-card");
   const heading = L.DomUtil.create("header", "feature-info-heading", content);
   const title = L.DomUtil.create("h2", "", heading);
-  title.textContent = properties.name || properties.titel || properties.bezeichnung || "Entsiegelungsfläche";
+  title.textContent = properties.name || properties.titel || "Entsiegelungsfläche";
   const subtitle = L.DomUtil.create("p", "feature-info-subtitle", heading);
-  subtitle.textContent = isNatureMonument
-    ? `Naturdenkmal${properties.kennung ? ` · ${properties.kennung}` : ""}`
-    : "Entsiegelungspotenzial";
+  subtitle.textContent = "Entsiegelungspotenzial";
 
   const metrics = L.DomUtil.create("div", "feature-metrics", content);
   const explicitRating = firstProperty(properties, [
@@ -1157,8 +914,8 @@ function makeMeasureInfoPopup(feature, isNatureMonument) {
   const validRating = Number.isInteger(rating) && rating >= 1 && rating <= 5;
   const ratingValue = validRating ? `${rating} / 5` : "Noch nicht bewertet";
   const ratingNote = validRating
-    ? ["Niedrig", "Gering", "Mittel", "Hoch", "Sehr empfehlenswert"][rating - 1]
-    : "Bewertungsstufe 1 (niedrig) bis 5 (sehr empfehlenswert)";
+    ? `Entsiegelungspotenzial ${priorityDescriptions[rating - 1]}`
+    : "Entsiegelungspotenzial: Stufe 1 (sehr gering) bis Stufe 5 (sehr hoch)";
   addInfoMetric(metrics, "Bewertungsstufe", ratingValue, ratingNote, validRating ? `rating-${rating}` : "is-unavailable");
 
   const rawArea = firstProperty(properties, [
@@ -1177,9 +934,7 @@ function makeMeasureInfoPopup(feature, isNatureMonument) {
     area || "Nicht hinterlegt",
     area
       ? "Für diese Fläche vorgesehene Entsiegelung"
-      : isNatureMonument
-        ? "Im Naturdenkmal-Layer nicht enthalten"
-        : "Flächengröße ist im Datensatz nicht enthalten",
+      : "Flächengröße ist im Datensatz nicht enthalten",
     area ? "" : "is-unavailable",
   );
 
@@ -1198,18 +953,13 @@ function makeMeasureInfoPopup(feature, isNatureMonument) {
     measures || "Noch nicht zugeordnet",
     measures
       ? "Vorschlag für diese Fläche"
-      : isNatureMonument
-        ? "Im Naturdenkmal-Layer nicht enthalten"
-        : "Keine Maßnahmen im Datensatz hinterlegt",
+      : "Keine Maßnahmen im Datensatz hinterlegt",
     measures ? "" : "is-unavailable",
   );
 
-  const metadataValues = isNatureMonument
-    ? [["Kennung", properties.kennung], ["Objekt-ID", properties.id]]
-    : [["Score", properties.score], ["Priorität", properties.priority]];
+  const metadataValues = [["Score", properties.score], ["Priorität", properties.priority]];
   const metadata = metadataValues.filter(([, value]) => value !== undefined && value !== null && value !== "");
-  const hasLinks = isNatureMonument && (properties.reportlink || properties.rvolink);
-  if (metadata.length || hasLinks) {
+  if (metadata.length) {
     const section = L.DomUtil.create("section", "feature-info-metadata", content);
     const metaTitle = L.DomUtil.create("h3", "", section);
     metaTitle.textContent = "Zusatzinformationen";
@@ -1217,31 +967,19 @@ function makeMeasureInfoPopup(feature, isNatureMonument) {
       const row = L.DomUtil.create("p", "feature-popup-meta-row", section);
       row.textContent = `${label}: ${value}`;
     });
-    addExternalInfoLink(section, properties.reportlink, "Fachinformation öffnen");
-    addExternalInfoLink(section, properties.rvolink, "Rechtsverordnung öffnen");
   }
   return content;
 }
 
 function renderCandidates() {
   const selectedPriority = priorityFilter.value;
-  const minimum = Number(scoreMinInput.value);
-  const maximum = Number(scoreMaxInput.value);
-  const hasScoreFilter = scoreBounds && (minimum > scoreBounds.min || maximum < scoreBounds.max);
-
-  if (hasScoreFilter && minimum > maximum) {
-    dataStatus.textContent = "Der Mindest-Score darf nicht größer als der Höchst-Score sein.";
-    return;
-  }
+  const selectedMeasure = measureFilter.value;
 
   candidateLayer.clearLayers();
   const visible = allFeatures.filter((feature) => {
     const properties = propertiesFor(feature);
-    if (selectedPriority && String(properties.priority ?? "") !== selectedPriority) return false;
-    if (hasScoreFilter) {
-      const score = Number(properties.score);
-      if (!Number.isFinite(score) || score < minimum || score > maximum) return false;
-    }
+    if (selectedPriority && getPriorityLevel(properties) !== selectedPriority) return false;
+    if (selectedMeasure && !featureHasMeasure(properties, selectedMeasure)) return false;
     return true;
   });
 
@@ -1272,34 +1010,85 @@ function renderCandidates() {
     : "Noch keine Flächendaten vorhanden. GeoJSON kann später ergänzt werden.";
 }
 
-function configureFilters(features) {
-  const scores = features
-    .map((feature) => Number(propertiesFor(feature).score))
-    .filter(Number.isFinite);
-  const priorities = [...new Set(
-    features.map((feature) => propertiesFor(feature).priority).filter((value) => value !== undefined && value !== null && value !== ""),
-  )].map(String).sort((a, b) => a.localeCompare(b, "de"));
-
-  priorityFilter.replaceChildren(new Option("Alle Prioritäten", ""));
-  priorities.forEach((priority) => priorityFilter.add(new Option(priority, priority)));
-  priorityFilter.disabled = priorities.length === 0;
-
-  scoreBounds = scores.length
-    ? { min: Math.floor(Math.min(...scores)), max: Math.ceil(Math.max(...scores)) }
-    : null;
-  if (scoreBounds) {
-    scoreMinInput.value = String(scoreBounds.min);
-    scoreMaxInput.value = String(scoreBounds.max);
-  } else {
-    scoreMinInput.value = "0";
-    scoreMaxInput.value = "100";
-  }
-  scoreFilter.disabled = !scoreBounds;
-
-  priorityFilter.addEventListener("change", renderCandidates);
-  scoreMinInput.addEventListener("input", renderCandidates);
-  scoreMaxInput.addEventListener("input", renderCandidates);
+function getPriorityLevel(properties) {
+  const value = firstProperty(properties, [
+    "priority",
+    "prioritaet",
+    "prioritätsstufe",
+    "prioritaetsstufe",
+    "bewertungsstufe",
+    "bewertungs_stufe",
+  ]);
+  const match = String(value ?? "").match(/(?:^|\D)([1-5])(?:\D|$)/);
+  return match ? match[1] : "";
 }
+
+function featureHasMeasure(properties, measureId) {
+  const selectedMeasure = measuresById.get(measureId);
+  if (!selectedMeasure) return false;
+  const selectedValues = new Set([measureId, selectedMeasure.name].map((value) => value.toLocaleLowerCase("de-DE")));
+  const propertyNames = [
+    "massnahme_id",
+    "massnahmen_id",
+    "vorgeschlagene_massnahmen",
+    "vorgeschlagene_massnahme",
+    "massnahmen_vorschlag",
+    "massnahme_vorschlag",
+    "massnahmen",
+    "massnahme",
+  ];
+  return propertyNames.some((name) => {
+    const raw = properties[name];
+    const values = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+        ? raw.split(/[,;|]/)
+        : [];
+    return values.some((value) => selectedValues.has(String(value).trim().toLocaleLowerCase("de-DE")));
+  });
+}
+
+function configureFilters() {
+  priorityFilter.replaceChildren(new Option("Alle Prioritäten", ""));
+  for (let level = 1; level <= 5; level += 1) {
+    priorityFilter.add(new Option(
+      `Stufe ${level} – Entsiegelungspotenzial ${priorityDescriptions[level - 1]}`,
+      String(level),
+    ));
+  }
+  priorityFilter.disabled = false;
+}
+
+priorityFilter.addEventListener("change", renderCandidates);
+measureFilter.addEventListener("change", renderCandidates);
+
+fetch("scoring/massnahmenkatalog.json")
+  .then((response) => {
+    if (!response.ok) throw new Error(`Maßnahmenkatalog konnte nicht geladen werden (${response.status}).`);
+    return response.json();
+  })
+  .then((catalog) => {
+    if (!catalog || !Array.isArray(catalog.measures)) {
+      throw new Error("Der Maßnahmenkatalog enthält keine gültige Maßnahmenliste.");
+    }
+    catalog.measures.forEach((measure) => {
+      if (typeof measure.id !== "string" || typeof measure.name !== "string") {
+        throw new Error("Der Maßnahmenkatalog enthält einen ungültigen Eintrag.");
+      }
+      measuresById.set(measure.id, measure);
+    });
+    measureFilter.replaceChildren(new Option("Alle Maßnahmen", ""));
+    catalog.measures.forEach(({ id, name }) => measureFilter.add(new Option(name, id)));
+    measureFilter.disabled = catalog.measures.length === 0;
+    measureFilterStatus.textContent = catalog.measures.length
+      ? ""
+      : "Im Maßnahmenkatalog sind keine Maßnahmen hinterlegt.";
+    renderCandidates();
+  })
+  .catch((error) => {
+    console.error("Maßnahmenfilter konnte nicht geladen werden:", error);
+    measureFilterStatus.textContent = error.message || "Maßnahmenfilter konnte nicht geladen werden.";
+  });
 
 fetch("data/geojson/entsiegelungskandidaten.geojson")
   .then((response) => {
@@ -1313,7 +1102,7 @@ fetch("data/geojson/entsiegelungskandidaten.geojson")
       throw new Error("Die GeoJSON-Datei enthält keine gültige FeatureCollection.");
     }
     allFeatures = geojson.features;
-    configureFilters(allFeatures);
+    configureFilters();
     renderCandidates();
 
     if (allFeatures.length > 0) {
