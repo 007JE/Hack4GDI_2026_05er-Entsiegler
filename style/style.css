@@ -9,6 +9,7 @@
   --forest-light: #235d4a;
   --leaf: #70a887;
   --orange: #e47736;
+  --logo-red: #bd1b1b;
   --ink-muted: #74817b;
   --line: #e5eae6;
   --header-height: 116px;
@@ -44,7 +45,7 @@ select {
   height: var(--header-height);
   align-items: center;
   padding: 0 34px;
-  background: var(--forest);
+  background: var(--logo-red);
   color: #fff;
   box-shadow: 0 3px 14px rgb(23 49 39 / 17%);
 }
@@ -64,6 +65,7 @@ select {
   font-size: clamp(1.7rem, 3vw, 2.25rem);
   font-weight: 800;
   letter-spacing: 0.03em;
+  color: #fff;
 }
 
 .brand-subtitle {
@@ -103,7 +105,7 @@ select {
   align-items: center;
   overflow: hidden;
   border-top: 1px solid rgb(255 255 255 / 14%);
-  background: #153d32;
+  background: var(--logo-red);
   color: #f3f7f3;
   box-shadow: 0 -3px 14px rgb(23 49 39 / 17%);
 }
@@ -159,7 +161,7 @@ select {
 }
 
 .license-entry a {
-  color: #c9ead4;
+  color: #fff;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
